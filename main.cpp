@@ -89,6 +89,8 @@ Model *parse_obj_file(String obj_filename)
         string_advance(&obj);
     }
     
+    string_free(&obj);
+    
     return m;
 }
 

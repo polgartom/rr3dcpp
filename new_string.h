@@ -11,11 +11,30 @@
 #define IS_ALNUM(c) (IS_ALPHA(c) || IS_DIGIT(c) || c == '_')
 #define IS_SPACE(c) ((c) == ' ' || (c) == '\t' || (c) == '\r' || (c) == '\n')
 
-typedef struct {
+struct String {
     char *data;
     char *alloc_location; // If allocated on the heap
     int count;
-} String;
+
+    // @Todo: Ref counting
+    // ~String() {
+    //     if (this->alloc_location != nullptr && this->ref_count == 0) {
+    //         free(this->alloc_location);
+    //     }
+    // }
+    
+    // String(const String &s) {
+    //     String sr = const_cast<String>(s);
+    //     sr.ref_count++;
+    // }
+    
+    // // copy assignment operator
+    // String& operator=(const String &s) {
+    //     String sr = const_cast<String>(s);
+    //     sr.ref_count++;
+    // };
+    
+};
 
 #define SFMT "%.*s"
 #define SARG(__s) (int) (__s).count, (__s).data 
@@ -40,7 +59,16 @@ String string_make_alloc(unsigned int size)
     return s;
 }
 
-String string_advance(String s, unsigned int step = 1)
+inline void string_free(String *s)
+{
+    // @Todo: Free heap allocations automatically, but we have to do a ref counting for that
+    if (s->alloc_location) {
+        free(s->alloc_location);
+        s->alloc_location = nullptr;
+    }
+}
+
+inline String string_advance(String s, unsigned int step = 1)
 {
     assert(s.count >= step && step >= 0);
 
