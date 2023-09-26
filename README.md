@@ -1,2 +1,2 @@
 # rr3dcpp
-Rasterization 3D Rendering with CPU
+Rasterization 3D Rendering on CPU
