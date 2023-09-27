@@ -64,6 +64,8 @@ struct Face {
 };
 
 struct Model {
+    float scale = 1.0f;
+
     Array<Vector3> vectors;
     Array<Face>    faces;
 };

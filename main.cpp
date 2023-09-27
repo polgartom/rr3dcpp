@@ -93,11 +93,21 @@ Model *parse_obj_file(String obj_filename)
     return m;
 }
 
+inline float scr_x(float x)
+{
+    return (x + 1.0) * WINDOW_WIDTH / 2;   
+}
+
+inline float scr_y(float y)
+{
+    return (y + 1.0) * WINDOW_HEIGHT / 2;   
+}
+
 inline Vector3 project_to_screen(Vector3 v)
 {
     Vector3 r;
-    r.x = (v.x+1.0)*WINDOW_WIDTH/2;
-    r.y = (v.y+1.0)*WINDOW_HEIGHT/2;
+    r.x = scr_x(v.x);
+    r.y = scr_y(v.y);
     r.z = 0.0f;
     
     return r;
@@ -122,6 +132,7 @@ inline void scale(Vector3 *v, float scale)
 
 inline void scale(Model *m, float scale)
 {    
+    m->scale = scale;
     for (int i = 0; i < m->vectors.count; i++) {
         Vector3 *v = &m->vectors[i];
         v->x *= scale;
@@ -224,18 +235,19 @@ void draw_line(float x1, float y1, float x2, float y2)
         y1 = temp;
     }
 
-    float delta = x2 - x1;
-    for (float x = x1; x < x2; x += 0.001f) {
-        float t = (x - x1) / delta;
-        float y = y1*(1.0-t) + (y2*t);
-        
-        Vector3 v = { x, y, 0 };
-        v = project_to_screen(v);
-        
+    float xr1 = scr_x(x1);
+    float xr2 = scr_x(x2);
+
+    float delta = xr2 - xr1;
+    for (float x = xr1; x < xr2; x += 1.0f) {
+        float t = (x - xr1) / delta;
+        float y = y1*(1.0f-t) + (y2*t);
+        y = scr_y(y);
+
         if (steep) {
-            SET_PIXEL((int)v.y, (int)v.x, RGB_COLOR(255, 255, 255));
+            SET_PIXEL(y, x, RGB_COLOR(255, 255, 255));
         } else {
-            SET_PIXEL((int)v.x, (int)v.y, RGB_COLOR(255, 255, 255));
+            SET_PIXEL(x, y, RGB_COLOR(255, 255, 255));
         }
     }
 }
