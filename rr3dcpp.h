@@ -30,7 +30,7 @@ void clog(const char *__fmt_msg, ...);
 
 #define ASSERT(__cond, __fmt_msg, ...) { \
     if (!(__cond)) { \
-        clog(COLOR_RED __fmt_msg COLOR_DEFAULT "\n", ##__VA_ARGS__); \
+        clog(__fmt_msg"\n", ##__VA_ARGS__); \
         assert(__cond); \
     } \
 }
@@ -50,6 +50,8 @@ void clog(const char *__fmt_msg, ...);
 struct Vector3 {
     float x, y, z;
 };
+#define VEC_FMT "v.x: %f ; v.y: %f ; v.z: %f"
+#define VEC_ARG(__v) __v.x, __v.y, __v.z
 
 struct Matrix3 {
     float _00, _01, _02,
@@ -58,9 +60,7 @@ struct Matrix3 {
 };
 
 struct Face {
-    Vector3 *v1; 
-    Vector3 *v2;
-    Vector3 *v3;
+    int v1, v2, v3;
 };
 
 struct Model {

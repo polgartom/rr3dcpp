@@ -72,16 +72,17 @@ inline String string_advance(String s, unsigned int step = 1)
 {
     assert(s.count >= step && step >= 0);
 
-    String new_s = s;
-    new_s.data   = s.data + step; 
-    new_s.count -= step;
+    s.data   = s.data + step; 
+    s.count -= step;
         
-    return new_s;
+    return s;
 }
+
 inline void string_advance(String *s, unsigned int step = 1) 
 {
-    String r = string_advance(*s);
-    memcpy(s, &r, sizeof(String));
+    String r = string_advance(*s, step);
+    s->data = r.data;
+    s->count = r.count;
 }
 
 char *string_to_cstr(String s)
@@ -174,6 +175,15 @@ float string_to_float(String s, bool *success, String *remained)
 
     *success = true;    
     return f;
+}
+
+inline String eat_string_until(String s, const char c)
+{
+    while (*s.data && *s.data != c) {
+        string_advance(&s);
+    }
+    
+    return s;
 }
 
 #endif

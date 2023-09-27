@@ -21,7 +21,6 @@
 Model *parse_obj_file(String obj_filename) 
 {
     String obj = read_entire_file(obj_filename.data);    
-    String _obj = obj; // backup
 
     Model *m = new Model();
 
@@ -31,10 +30,9 @@ Model *parse_obj_file(String obj_filename)
     String rem = obj;
     
     while (obj.count-1) {
-        char c = *obj.data;
-        if (c == 'v') {
+        if (*obj.data == 'v') {
             string_advance(&obj, 2);
-
+            if (*obj.data != '-' && !IS_DIGIT(*obj.data)) continue;
             Vector3 v = {0};
 
             r = string_to_float(obj, &s, &rem);
@@ -53,48 +51,49 @@ Model *parse_obj_file(String obj_filename)
             v.z = r;
 
             array_add(&m->vectors, v);
-                        
         }
-        
-        string_advance(&obj);
-    }
-
-    obj = _obj;
-    while (obj.count-1) {
-        char c = *obj.data;
-
-        if (c == 'f') {
+        else if (*obj.data == 'f') {
             string_advance(&obj, 2);
+            if (!(*obj.data >= '1' && *obj.data <= '9')) continue;
 
             Face f = {0};
 
             ri = string_to_int(obj, &s, &rem);
             assert(s);
             obj = rem;
-            f.v1 = &m->vectors[ri-1];
+            f.v1 = ri-1;
+            
+            // skip not handled stuffs, every vertex index start after ' ' (space character)
+            obj = eat_string_until(obj, ' '); 
             
             ri = string_to_int(obj, &s, &rem);
             assert(s);
             obj = rem;
-            f.v2 = &m->vectors[ri-1];
+            f.v2 = ri-1;
+            
+            // skip not handled stuffs, every vertex index start after ' ' (space character)
+            obj = eat_string_until(obj, ' ');
             
             ri = string_to_int(obj, &s, &rem);
             assert(s);
             obj = rem;
-            f.v3 = &m->vectors[ri-1];
-
+            f.v3 = ri-1;
+            
             array_add(&m->faces, f);
         }
         
         string_advance(&obj);
     }
-    
+
     string_free(&obj);
+
+    clog("obj parsed: " SFMT "\n", SARG(obj_filename));
+    clog("vertices: %d ; faces: %d\n", m->vectors.count, m->faces.count);
     
     return m;
 }
 
-Vector3 project_to_screen(Vector3 v)
+inline Vector3 project_to_screen(Vector3 v)
 {
     Vector3 r;
     r.x = (v.x+1.0)*WINDOW_WIDTH/2;
@@ -121,7 +120,19 @@ inline void scale(Vector3 *v, float scale)
     v->z *= scale;
 }
 
-void rotate_x(Vector3 *v, float angle) 
+inline void scale(Model *m, float scale)
+{    
+    for (int i = 0; i < m->vectors.count; i++) {
+        Vector3 *v = &m->vectors[i];
+        v->x *= scale;
+        v->y *= scale;
+        v->z *= scale;
+        // This is a fucking bug or what??????????? -> ..\main.cpp(127): error C2064: term does not evaluate to a function taking 2 arguments
+        // scale(v, scale);
+    }
+}
+
+inline void rotate_x(Vector3 *v, float angle) 
 {
     Matrix3 m = {
         1.0f, 0.0f, 0.0f,
@@ -136,7 +147,14 @@ void rotate_x(Vector3 *v, float angle)
     v->z = r.z;
 }
 
-void rotate_y(Vector3 *v, float angle) 
+inline void rotate_x(Model *m, float scale)
+{
+    for (int i = 0; i < m->vectors.count; i++) {
+        rotate_x(&m->vectors[i], scale);
+    }
+}
+
+inline void rotate_y(Vector3 *v, float angle) 
 {
     Matrix3 m = {
         (float)cos(angle), 0, (float)sin(angle),
@@ -151,7 +169,14 @@ void rotate_y(Vector3 *v, float angle)
     v->z = r.z;
 }
 
-void rotate_z(Vector3 *v, float angle) 
+inline void rotate_y(Model *m, float scale)
+{
+    for (int i = 0; i < m->vectors.count; i++) {
+        rotate_y(&m->vectors[i], scale);
+    }
+}
+
+inline void rotate_z(Vector3 *v, float angle) 
 {
     Matrix3 m = {
         (float)cos(angle), (float)-sin(angle), 0,
@@ -164,6 +189,13 @@ void rotate_z(Vector3 *v, float angle)
     v->x = r.x;
     v->y = r.y;
     v->z = r.z;
+}
+
+inline void rotate_z(Model *m, float scale)
+{
+    for (int i = 0; i < m->vectors.count; i++) {
+        rotate_z(&m->vectors[i], scale);
+    }
 }
 
 static float angle = 0.00f; 
@@ -207,7 +239,8 @@ void draw_line(float x1, float y1, float x2, float y2)
         }
     }
 }
-void draw_line(Vector3 start, Vector3 end)
+
+inline void draw_line(Vector3 start, Vector3 end)
 {
     float x1 = start.x;
     float y1 = start.y;
@@ -217,42 +250,41 @@ void draw_line(Vector3 start, Vector3 end)
     draw_line(x1, y1, x2, y2);
 }
 
-static float ss = 0.04f;
-
-void render_obj_file(Win32_Offscreen_Buffer *buffer, Model *m, int width, int height)
+inline void draw_mesh(Model *m)
 {
-    angle += 0.005f;
-    
     // for (s64 i = 0; i < m->vectors.count; i++) {
     //     Vector3 v = m->vectors[i];
+    //     // clog(VEC_FMT "\n", VEC_ARG(v));
     //     scale(&v, ss);
     //     rotate_y(&v, angle);
     //     v = project_to_screen(v);
-    //     if (v.x > lg.x) lg = v;
     //     int x = (int)v.x;
     //     int y = (int)v.y;
 
     //     SET_PIXEL(x, y, RGB_COLOR(255, 255, 255));
     // }
 
-    for (s64 i = 0; i < m->faces.count; i++) {
+    for (s64 i = 0; i < m->faces.count; i++) {    
         Face f = m->faces[i];
-        Vector3 v1 = *m->faces[i].v1;
-        Vector3 v2 = *m->faces[i].v2;
-        Vector3 v3 = *m->faces[i].v3;
-        
+        Vector3 v1 = m->vectors[f.v1];
+        Vector3 v2 = m->vectors[f.v2];
+        Vector3 v3 = m->vectors[f.v3];
+
         rotate_y(&v1, angle);
         rotate_y(&v2, angle);
         rotate_y(&v3, angle);
         
-        scale(&v1, ss);
-        scale(&v2, ss);
-        scale(&v3, ss);
-        
         draw_line(v1, v2);
         draw_line(v2, v3);
         draw_line(v3, v1);
-    }
+    }    
+}
+
+inline void render_obj_file(Win32_Offscreen_Buffer *buffer, Model *m, int width, int height)
+{
+    angle += 0.005f;
+    
+    draw_mesh(m);
 }
 
 int CALLBACK
@@ -298,18 +330,19 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
             int yoffset = 0;
             
             //Win32InitDSound();
-            
+
             Model *m = parse_obj_file(string_create(".\\obj\\teddy.obj"));
-            ss = 0.04f;
+            scale(m, 0.04f);
+            rotate_x(m, 0.3f);
 
             // Model *m = parse_obj_file(string_create(".\\obj\\cow.obj"));
-            // ss = 0.12f;
+            // scale(m, 0.12f);
 
             // Model *m = parse_obj_file(string_create(".\\obj\\teapot.obj"));
-            // ss = 0.27f;
+            // scale(m, 0.27f);
 
             // Model *m = parse_obj_file(string_create(".\\obj\\pumpkin.obj"));
-            // ss = 0.007f;
+            // scale(m, 0.07f);
 
             while (global_running) {            
                 MSG message;
