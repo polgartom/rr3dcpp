@@ -70,6 +70,7 @@ struct Model {
     Array<Face>    faces;
 };
 
+
 String read_entire_file(char *filename)
 {
     FILE *fp = fopen(filename, "rb");

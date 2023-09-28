@@ -1,22 +1,18 @@
 #include "rr3dcpp.h"
 
-#define WINDOW_WIDTH  800
-#define WINDOW_HEIGHT 800
+// #define WINDOW_WIDTH  800
+// #define WINDOW_HEIGHT 800
+int WINDOW_WIDTH  = 800;
+int WINDOW_HEIGHT = 800;
 
-#define SET_PIXEL(__x, __y, _color) { \
-    int _x = (int)__x; \
-    int _y = (int)__y; \
-    if (_x >= 0 && _x < WINDOW_WIDTH && _y >= 0 && _y < WINDOW_HEIGHT) { \
-        u32 _p = (_y) * (WINDOW_HEIGHT) + (_x); \
-        if (_p >= 1 && _p <= ((global_back_buffer.bitmap_memory_size-1)/global_back_buffer.bytes_per_pixel)) { \
-            *(((u32 *)global_back_buffer.memory)+_p) = (u32)_color; \
-        } \
-    } else { \
-    \
-    }\
-}\
+inline void set_pixel(int x, int y, u32 color)
+{
+    if (x >= 0 && x < WINDOW_WIDTH && y >= 0 && y < WINDOW_HEIGHT) {
+        *((static_cast<u32 *>(global_back_buffer.memory)) + (y * WINDOW_WIDTH + x)) = color;
+    }
+}
 
-#define RGB_COLOR(r, g, b) (((r&0xFF) << 16) | ((g&0xFF) << 8) | ((b&0xFF) << 0))
+#define RGB_COLOR(r, g, b) (((r & 0xFF) << 16) | ((g & 0xFF) << 8) | ((b & 0xFF) << 0))
 
 Model *parse_obj_file(String obj_filename) 
 {
@@ -100,7 +96,7 @@ inline float scr_x(float x)
 
 inline float scr_y(float y)
 {
-    return (y + 1.0) * WINDOW_HEIGHT / 2;   
+    return (y + 1.0) * WINDOW_WIDTH / 2;   
 }
 
 inline Vector3 project_to_screen(Vector3 v)
@@ -245,9 +241,9 @@ void draw_line(float x1, float y1, float x2, float y2)
         y = scr_y(y);
 
         if (steep) {
-            SET_PIXEL(y, x, RGB_COLOR(255, 255, 255));
+            set_pixel(y, x, RGB_COLOR(255, 255, 255));
         } else {
-            SET_PIXEL(x, y, RGB_COLOR(255, 255, 255));
+            set_pixel(x, y, RGB_COLOR(255, 255, 255));
         }
     }
 }
@@ -273,7 +269,7 @@ inline void draw_mesh(Model *m)
     //     int x = (int)v.x;
     //     int y = (int)v.y;
 
-    //     SET_PIXEL(x, y, RGB_COLOR(255, 255, 255));
+    //     set_pixel(x, y, RGB_COLOR(255, 255, 255));
     // }
 
     for (s64 i = 0; i < m->faces.count; i++) {    
@@ -292,21 +288,29 @@ inline void draw_mesh(Model *m)
     }    
 }
 
-inline void render_obj_file(Win32_Offscreen_Buffer *buffer, Model *m, int width, int height)
+inline void render_obj_file(Win32_Offscreen_Buffer *buffer, Model *m)
 {
     angle += 0.005f;
     
     draw_mesh(m);
 }
 
+inline void draw_triangle()
+{
+    draw_line(0.0f, 0.0f, 1.0f, 1.0f);
+}
+
 int CALLBACK
 WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int show_code)
 {
+    assert(AllocConsole()); // @temporary
     Win32LoadXInput();
 
     WNDCLASSA window_class = {};
     
     Win32ResizeDIBSection(&global_back_buffer, WINDOW_WIDTH, WINDOW_HEIGHT);
+    clog("[Win32ResizeDIBSection]: %d %d\n", WINDOW_WIDTH, WINDOW_HEIGHT);
+    clog("kacsa");
     
     window_class.style = CS_HREDRAW|CS_VREDRAW;
     window_class.lpfnWndProc = MainWindowCallback;
@@ -316,8 +320,6 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
 
     int x = WS_OVERLAPPEDWINDOW | WS_VISIBLE;
     x = x;
-
-    assert(AllocConsole()); // @temporary
 
     if (RegisterClass(&window_class)) {
         HWND window =
@@ -356,6 +358,7 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
             // Model *m = parse_obj_file(string_create(".\\obj\\pumpkin.obj"));
             // scale(m, 0.07f);
 
+            u64 cycle = 0;
             while (global_running) {            
                 MSG message;
                 while (PeekMessage(&message, 0, 0, 0, PM_REMOVE)) {
@@ -369,12 +372,21 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                 
                 HDC device_context = GetDC(window);
                 Win32_Window_Dimension dimension = Win32GetWindowDimension(window);
+                if (WINDOW_WIDTH != dimension.width || WINDOW_HEIGHT != dimension.height) {
+                    WINDOW_WIDTH = dimension.width;
+                    WINDOW_HEIGHT = dimension.height;
+                    Win32ResizeDIBSection(&global_back_buffer, dimension.width, dimension.height);
+                    clog("[Win32ResizeDIBSection]: %d %d\n", WINDOW_WIDTH, WINDOW_HEIGHT);
+                }
                 
                 ZERO_MEMORY(global_back_buffer.memory, global_back_buffer.bitmap_memory_size);
-                render_obj_file(&global_back_buffer, m, dimension.width, dimension.height);
+                render_obj_file(&global_back_buffer, m);
+                // draw_triangle();
                        
                 Win32DisplayBuffer(&global_back_buffer, device_context, dimension.width, dimension.height, 0, 0);
                 ReleaseDC(window, device_context);
+                
+                cycle++;
             }
         } else {
             // @Todo: Logging
