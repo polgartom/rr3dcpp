@@ -70,7 +70,6 @@ struct Model {
     Array<Face>    faces;
 };
 
-
 String read_entire_file(char *filename)
 {
     FILE *fp = fopen(filename, "rb");
@@ -102,5 +101,16 @@ void clog(const char *__fmt_msg, ...)
     
     WriteConsole(GetStdHandle(STD_OUTPUT_HANDLE), buf, strlen(buf), NULL, NULL);
 }
+
+inline void swap(float *a, float *b)
+{
+    float t = *a;
+    *a = *b;
+    *b = t;
+}
+
+#define PRINT_VEC(_v) clog("{ x: %f ; y: %f ; z: %f }\n", (_v).x, (_v).y, (_v).z);
+
+#include "math.h"
 
 #endif 

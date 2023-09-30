@@ -25,6 +25,7 @@ struct Win32_Offscreen_Buffer
 {
     BITMAPINFO info;
     void *memory;
+    void *zbuffer;
     int bitmap_memory_size;
     int width;
     int height;
@@ -128,6 +129,9 @@ Win32ResizeDIBSection(Win32_Offscreen_Buffer *buffer, int width, int height)
     if (buffer->memory) {
         VirtualFree(buffer->memory, 0,  MEM_RELEASE);
     }
+    if (buffer->zbuffer) {
+        VirtualFree(buffer->zbuffer, 0,  MEM_RELEASE);
+    }
 
     buffer->width = width;
     buffer->height = height;
@@ -145,6 +149,7 @@ Win32ResizeDIBSection(Win32_Offscreen_Buffer *buffer, int width, int height)
 
     int bitmap_memory_size = (buffer->width*buffer->height)*buffer->bytes_per_pixel;    
     buffer->memory = VirtualAlloc(0, bitmap_memory_size, MEM_COMMIT, PAGE_READWRITE);
+    buffer->zbuffer = VirtualAlloc(0, bitmap_memory_size, MEM_COMMIT, PAGE_READWRITE);
     buffer->bitmap_memory_size = bitmap_memory_size;
     
     buffer->pitch = width*buffer->bytes_per_pixel;

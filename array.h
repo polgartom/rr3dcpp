@@ -8,6 +8,7 @@ struct Array {
     T *data = nullptr;
     long allocated = 0;
     long count = 0;
+    long iterator_index = 0;
 
     ~Array() {
         if (this->allocated != 0) {
@@ -19,6 +20,25 @@ struct Array {
         // ASSERT(index < this->allocated || index >= this->allocated, "Array index out of bound");  
         ASSERT(index < this->count || index >= this->count, "Array index out of bound");  
         return this->data[index];
+    }
+
+    typedef T* iterator;
+    typedef const T* const_iterator;
+    
+    iterator begin() { return data; }
+    iterator begin() const { return data; }
+    iterator end() { return count ? &data[count-1] : this->begin(); }
+    const_iterator end() const { return count ? &data[count-1] : this->begin(); }
+    
+    iterator& operator++() {
+        if (iterator_index+1 < count) {
+            iterator_index += 1;
+        }
+        return data[iterator_index];
+    }
+    
+    bool operator!=(iterator& rhs) {
+        return &data[iterator_index] != rhs;
     }
 };
 
@@ -33,7 +53,6 @@ void array_add(Array<T> *arr, T item)
         } else {
             arr->data = static_cast<T *>(realloc(arr->data, sizeof(T) * reserve));
         }        
-        
         arr->allocated = reserve;
     }
 
@@ -59,5 +78,8 @@ T array_pop(Array<T> *arr)
 
     return r;
 }
+
+#define For(_arr) for (auto it = _arr.begin(); it != _arr.end(); it++)
+#define For_Index(_arr) for (auto it_index = 0; it_index < _arr.count; it_index++)
 
 #endif 

@@ -1,1 +1,1 @@
-call .\build.bat && .\build\main.exe
+call .\compile.bat && .\build\main.exe

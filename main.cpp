@@ -5,6 +5,8 @@
 int WINDOW_WIDTH  = 800;
 int WINDOW_HEIGHT = 800;
 
+#define RGB_COLOR(r, g, b) (((r & 0xFF) << 16) | ((g & 0xFF) << 8) | ((b & 0xFF) << 0))
+
 inline void set_pixel(int x, int y, u32 color)
 {
     if (x >= 0 && x < WINDOW_WIDTH && y >= 0 && y < WINDOW_HEIGHT) {
@@ -12,12 +14,33 @@ inline void set_pixel(int x, int y, u32 color)
     }
 }
 
-#define RGB_COLOR(r, g, b) (((r & 0xFF) << 16) | ((g & 0xFF) << 8) | ((b & 0xFF) << 0))
+inline u32 get_pixel(int x, int y)
+{
+    if (x >= 0 && x < WINDOW_WIDTH && y >= 0 && y < WINDOW_HEIGHT) {
+        return *((static_cast<u32 *>(global_back_buffer.memory)) + (y * WINDOW_WIDTH + x));
+    }
+    return 0;
+}
+
+inline void set_zbuf(int x, int y, float z)
+{
+    if (x >= 0 && x < WINDOW_WIDTH && y >= 0 && y < WINDOW_HEIGHT) {
+        *((static_cast<float *>(global_back_buffer.zbuffer)) + (y * WINDOW_WIDTH + x)) = z;
+    }
+}
+
+inline float get_zbuf(int x, int y)
+{
+    if (x >= 0 && x < WINDOW_WIDTH && y >= 0 && y < WINDOW_HEIGHT) {
+        return *((static_cast<float *>(global_back_buffer.zbuffer)) + (y * WINDOW_WIDTH + x));
+    }
+    return 0.0f;
+}
 
 Model *parse_obj_file(String obj_filename) 
 {
     String obj = read_entire_file(obj_filename.data);    
-
+    
     Model *m = new Model();
 
     float r = 0.0f;
@@ -30,7 +53,7 @@ Model *parse_obj_file(String obj_filename)
             string_advance(&obj, 2);
             if (*obj.data != '-' && !IS_DIGIT(*obj.data)) continue;
             Vector3 v = {0};
-
+            
             r = string_to_float(obj, &s, &rem);
             assert(s);
             obj = rem;
@@ -91,12 +114,28 @@ Model *parse_obj_file(String obj_filename)
 
 inline float scr_x(float x)
 {
-    return (x + 1.0) * WINDOW_WIDTH / 2;   
+    return (x + 1.0) * WINDOW_WIDTH / 2;
+}
+
+inline float scr_rev_x(float x)
+{
+    return x * 2 / WINDOW_WIDTH - 1.0;
 }
 
 inline float scr_y(float y)
 {
-    return (y + 1.0) * WINDOW_WIDTH / 2;   
+    return (y + 1.0) * WINDOW_WIDTH / 2;
+}
+
+inline float scr_rev_y(float y)
+{
+    return y * 2 / WINDOW_WIDTH - 1.0;
+}
+
+inline float map_z(float z, float zmin, float zmax)
+{
+    // return 1.0 - ((z - zmax) / (zmin - zmax)) + 1.0;
+    return (1.0 - ((z - zmax) / (zmin - zmax)));
 }
 
 inline Vector3 project_to_screen(Vector3 v)
@@ -109,153 +148,104 @@ inline Vector3 project_to_screen(Vector3 v)
     return r;
 }
 
-inline Vector3 multiply(Vector3 v, Matrix3 m) 
-{
-    Vector3 r;
-    r.x = (v.x * m._00) + (v.y * m._01) + (v.z * m._02);
-    r.y = (v.x * m._10) + (v.y * m._11) + (v.z * m._12);
-    r.z = (v.x * m._20) + (v.y * m._21) + (v.z * m._22);
-    
-    return r;
-}
-
-inline void scale(Vector3 *v, float scale)
-{
-    v->x *= scale;
-    v->y *= scale;
-    v->z *= scale;
-}
-
-inline void scale(Model *m, float scale)
-{    
-    m->scale = scale;
-    for (int i = 0; i < m->vectors.count; i++) {
-        Vector3 *v = &m->vectors[i];
-        v->x *= scale;
-        v->y *= scale;
-        v->z *= scale;
-        // This is a fucking bug or what??????????? -> ..\main.cpp(127): error C2064: term does not evaluate to a function taking 2 arguments
-        // scale(v, scale);
-    }
-}
-
-inline void rotate_x(Vector3 *v, float angle) 
-{
-    Matrix3 m = {
-        1.0f, 0.0f, 0.0f,
-        0.0f, (float)cos(angle), (float)-sin(angle),
-        0.0f, (float)sin(angle), (float)cos(angle),
-    };
-
-    Vector3 r = multiply(*v, m);
-
-    v->x = r.x;
-    v->y = r.y;
-    v->z = r.z;
-}
-
-inline void rotate_x(Model *m, float scale)
-{
-    for (int i = 0; i < m->vectors.count; i++) {
-        rotate_x(&m->vectors[i], scale);
-    }
-}
-
-inline void rotate_y(Vector3 *v, float angle) 
-{
-    Matrix3 m = {
-        (float)cos(angle), 0, (float)sin(angle),
-        0, 1, 0,
-        (float)-sin(angle), 0, (float)cos(angle),
-    };
-
-    Vector3 r = multiply(*v, m);
-
-    v->x = r.x;
-    v->y = r.y;
-    v->z = r.z;
-}
-
-inline void rotate_y(Model *m, float scale)
-{
-    for (int i = 0; i < m->vectors.count; i++) {
-        rotate_y(&m->vectors[i], scale);
-    }
-}
-
-inline void rotate_z(Vector3 *v, float angle) 
-{
-    Matrix3 m = {
-        (float)cos(angle), (float)-sin(angle), 0,
-        (float)sin(angle), (float)cos(angle), 0,
-        1, 0, 1,
-    };
-
-    Vector3 r = multiply(*v, m);
-
-    v->x = r.x;
-    v->y = r.y;
-    v->z = r.z;
-}
-
-inline void rotate_z(Model *m, float scale)
-{
-    for (int i = 0; i < m->vectors.count; i++) {
-        rotate_z(&m->vectors[i], scale);
-    }
-}
-
 static float angle = 0.00f; 
 
-void draw_line(float x1, float y1, float x2, float y2)
+void draw_line(float x1, float y1, float x2, float y2, float z1, float z2, u32 color = RGB_COLOR(255, 255, 255))
 {
     bool steep = false;
-    if ((x1 - x2) < (y1 - y2)) {
+    if (abs(x1 - x2) < abs(y1 - y2)) {
         steep = true;
-        float temp = x1;
-        x1 = y1;
-        y1 = temp;
-        
-        temp = x2;
-        x2 = y2;
-        y2 = temp;
+        swap(&x1, &y1);
+        swap(&x2, &y2);
     }
 
     if (x1 > x2) {
-        float temp = x2;
-        x2 = x1;
-        x1 = temp;
-        
-        temp = y2;
-        y2 = y1;
-        y1 = temp;
+        swap(&x1, &x2);
+        swap(&y1, &y2);
     }
 
     float xr1 = scr_x(x1);
     float xr2 = scr_x(x2);
-
     float delta = xr2 - xr1;
+
+    // float z = max(z1, z2);
+    float z = max(z1, z2);
+    // if (z < 0.0f || z >= 1.0f) return;
+    
     for (float x = xr1; x < xr2; x += 1.0f) {
         float t = (x - xr1) / delta;
         float y = y1*(1.0f-t) + (y2*t);
+        // float z = z1*(1.0f-t) + (z2*t);
         y = scr_y(y);
 
+        // if (z > 0.00001f) {
+
         if (steep) {
-            set_pixel(y, x, RGB_COLOR(255, 255, 255));
+            set_pixel(y, x, color);
+            float cz = get_zbuf(y, x);
+            if (z > cz) {
+                set_zbuf(y, x, z);
+            }
         } else {
-            set_pixel(x, y, RGB_COLOR(255, 255, 255));
+            set_pixel(x, y, color);
+            float cz = get_zbuf(x, y);
+            if (z > cz) {
+                set_zbuf(x, y, z);
+            }
         }
     }
 }
 
-inline void draw_line(Vector3 start, Vector3 end)
+inline void draw_line(Vector3 start, Vector3 end, u32 color = RGB_COLOR(255, 255, 255))
 {
     float x1 = start.x;
     float y1 = start.y;
     float x2 = end.x;
     float y2 = end.y;
     
-    draw_line(x1, y1, x2, y2);
+    draw_line(x1, y1, x2, y2, start.z, end.z, color);
+}
+
+#define MAX3(_a, _b, _c) (max(_c, max(_a, _b)))
+#define MIN3(_a, _b, _c) (min(_c, min(_a, _b)))
+
+inline void draw_triangle(Vector3 v1, Vector3 v2, Vector3 v3, u32 color = RGB_COLOR(255, 255, 255))
+{
+    float xmax = MAX3(v1.x, v2.x, v3.x);
+    float xmin = MIN3(v1.x, v2.x, v3.x);
+    
+    float ymax = MAX3(v1.y, v2.y, v3.y);
+    float ymin = MIN3(v1.y, v2.y, v3.y);
+    
+    float zmax = MAX3(v1.z, v2.z, v3.z);
+    float zmin = MIN3(v1.z, v2.z, v3.z);
+    
+    Vector3 *a, *b, *c = nullptr;
+    
+    if (v1.y == ymin) a = &v1;
+    else if (v2.y == ymin) a = &v2;
+    else if (v3.y == ymin) a = &v3;
+    
+    if (v1.y == ymax) b = &v1;
+    else if (v2.y == ymax) b = &v2;
+    else if (v3.y == ymax) b = &v3;
+    
+    if (&v1 != a && &v1 != b) c = &v1;
+    else if (&v2 != a && &v2 != b) c = &v2;
+    else if (&v3 != a && &v3 != b) c = &v3;
+    
+    float y1 = scr_y(a->y);
+    float y2 = scr_y(b->y);
+    float x = scr_x(a->x);
+    float m = ((a->x - b->x) / (a->y - b->y));
+    for (float y = y1; y < y2; y += 1.0f) {
+        draw_line(scr_rev_x(x), scr_rev_y(y), c->x, c->y, zmin, zmax, color);
+        x+=m;
+    }
+ 
+    // draw_line(v1, v2, color);
+    // draw_line(v2, v3, color);
+    // draw_line(v3, v1, color);
 }
 
 inline void draw_mesh(Model *m)
@@ -282,22 +272,15 @@ inline void draw_mesh(Model *m)
         rotate_y(&v2, angle);
         rotate_y(&v3, angle);
         
-        draw_line(v1, v2);
-        draw_line(v2, v3);
-        draw_line(v3, v1);
+        draw_triangle(v1, v2, v3, RGB_COLOR(200, 200, 200));
     }    
 }
 
 inline void render_obj_file(Win32_Offscreen_Buffer *buffer, Model *m)
 {
-    angle += 0.005f;
+    angle += 0.010f;
     
     draw_mesh(m);
-}
-
-inline void draw_triangle()
-{
-    draw_line(0.0f, 0.0f, 1.0f, 1.0f);
 }
 
 int CALLBACK
@@ -310,16 +293,12 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
     
     Win32ResizeDIBSection(&global_back_buffer, WINDOW_WIDTH, WINDOW_HEIGHT);
     clog("[Win32ResizeDIBSection]: %d %d\n", WINDOW_WIDTH, WINDOW_HEIGHT);
-    clog("kacsa");
     
     window_class.style = CS_HREDRAW|CS_VREDRAW;
     window_class.lpfnWndProc = MainWindowCallback;
     window_class.hInstance = instance;
     // window_class.hIcon;
     window_class.lpszClassName = "RR3DCPPWindowClass";
-
-    int x = WS_OVERLAPPEDWINDOW | WS_VISIBLE;
-    x = x;
 
     if (RegisterClass(&window_class)) {
         HWND window =
@@ -346,8 +325,19 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
             //Win32InitDSound();
 
             Model *m = parse_obj_file(string_create(".\\obj\\teddy.obj"));
-            scale(m, 0.04f);
-            rotate_x(m, 0.3f);
+            scale(m, 0.045f);
+            
+            float zmax, zmin = 0.0f;
+            For (m->vectors) {
+                if (it->z > zmax) zmax = it->z;
+                if (it->z < zmin) zmin = it->z;
+            }
+            
+            For_Index (m->vectors) {
+                auto it = &m->vectors[it_index];
+                it->z = map_z(it->z, zmin, zmax) - 0.5;
+                PRINT_VEC(*it);
+            }
 
             // Model *m = parse_obj_file(string_create(".\\obj\\cow.obj"));
             // scale(m, 0.12f);
@@ -380,9 +370,47 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                 }
                 
                 ZERO_MEMORY(global_back_buffer.memory, global_back_buffer.bitmap_memory_size);
+                ZERO_MEMORY(global_back_buffer.zbuffer, global_back_buffer.bitmap_memory_size);
                 render_obj_file(&global_back_buffer, m);
-                // draw_triangle();
-                       
+           
+                // draw_triangle(
+                //     {-0.8, -0.5, 0},
+                //     {0.0, 0.1, 0},
+                //     {-1.0, 0.8, 0}
+                // );
+                
+                // draw_triangle(
+                //     {-0.8, -0.5, 0},
+                //     {0.0, 0.8, 0},
+                //     {0.8, -0.5, 0},
+                //     RGB_COLOR(200, 50, 90)
+                // );
+                
+                // draw_triangle(
+                //     {0.7, -0.5, 0},
+                //     {0.2, 0.5, 0},
+                //     {0.0, 0.7, 0},
+                //     RGB_COLOR(50, 200, 100)
+                // );
+                
+                // draw_triangle(
+                //     {-0.7, -0.3, 0},
+                //     {0.6, -0.4, 0},
+                //     {0.7f, -0.45, 0},
+                //     RGB_COLOR(50, 100, 200)
+                // );
+                
+                for (u32 y = 0; y < WINDOW_HEIGHT; y++) {
+                    for (u32 x = 0; x < WINDOW_WIDTH; x++) {
+                        u32 p = get_pixel(x, y);
+                        float zval = get_zbuf(x, y);
+                        u8 r = ((p >> 16) & 0xFF) * (zval);
+                        u8 g = ((p >> 8) & 0xFF) * (zval);
+                        u8 b = ((p >> 0) & 0xFF) * (zval);
+                        set_pixel(x, y, RGB_COLOR(r, g, b));
+                    }
+                }
+                
                 Win32DisplayBuffer(&global_back_buffer, device_context, dimension.width, dimension.height, 0, 0);
                 ReleaseDC(window, device_context);
                 
