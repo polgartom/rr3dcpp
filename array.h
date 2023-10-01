@@ -10,11 +10,12 @@ struct Array {
     long count = 0;
     long iterator_index = 0;
 
-    ~Array() {
-        if (this->allocated != 0) {
-            free(this->data);
-        }
-    };
+    // @Todo: Refcount!!
+    // ~Array() {
+    //     if (this->allocated != 0) {
+    //         free(this->data);
+    //     }
+    // };
 
     T& operator[](unsigned long index) {
         // ASSERT(index < this->allocated || index >= this->allocated, "Array index out of bound");  
@@ -27,11 +28,6 @@ struct Array {
     T* end() { return count ? &data[count-1] : this->begin(); }
     T* end() const { return count ? &data[count-1] : this->begin(); }
 };
-
-template <typename T>
-inline bool operator!=(T& lhs, long index) {
-    return lhs.count != index;
-}
 
 template <typename T>
 void array_add(Array<T> *arr, T item)
@@ -49,6 +45,18 @@ void array_add(Array<T> *arr, T item)
 
     arr->data[arr->count] = item;
     arr->count += 1;    
+}
+
+template <typename T>
+Array<T> array_copy(Array<T> arr)
+{
+    auto new_arr = arr;
+    auto size_in_bytes = sizeof(T) * arr.allocated;
+    new_arr.data = static_cast<T *>(malloc(size_in_bytes));
+    memcpy(new_arr.data, arr.data, size_in_bytes); // or arr.count
+    assert(&new_arr.data[0] != &arr.data[0]);
+    
+    return new_arr;
 }
 
 template <typename T>

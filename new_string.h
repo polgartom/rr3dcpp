@@ -177,7 +177,7 @@ float string_to_float(String s, bool *success, String *remained)
     return f;
 }
 
-inline String eat_string_until(String s, const char c)
+inline String string_eat_until(String s, const char c)
 {
     while (*s.data && *s.data != c) {
         string_advance(&s);

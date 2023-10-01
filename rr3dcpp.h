@@ -48,15 +48,24 @@ void clog(const char *__fmt_msg, ...);
 #include "window.h"
 
 struct Vector3 {
-    float x, y, z;
+    float x, y, z = 0.0f;
 };
-#define VEC_FMT "v.x: %f ; v.y: %f ; v.z: %f"
-#define VEC_ARG(__v) __v.x, __v.y, __v.z
+
+struct Vector4 {
+    float x, y, z, w = 0.0f;
+};
 
 struct Matrix3 {
     float _00, _01, _02,
           _10, _11, _12,
-          _20, _21, _22;
+          _20, _21, _22 = 0.0f;
+};
+
+struct Matrix4 {
+    float _00, _01, _02, _03,
+          _10, _11, _12, _13,
+          _20, _21, _22, _23,
+          _30, _31, _32, _33 = 0.0f;
 };
 
 struct Face {
@@ -64,10 +73,14 @@ struct Face {
 };
 
 struct Model {
+    float x, y, z = 0.0f;
     float scale = 1.0f;
     float rx = 0.0f;
     float ry = 0.0f;
     float rz = 0.0f;
+        
+    float sx = 0.0f;
+    float sy = 0.0f;
 
     Array<Vector3> vectors;
     Array<Face>    faces;
@@ -122,8 +135,89 @@ inline void swap(float *a, float *b)
 // new_string.h
 #define CLOG_S(_s)    clog(XSTR(_s) ": " SFMT " ; ", SARG(_s))
 #define CLOG_END()    clog("}\n")
-#define CLOG1(_CLOG)  CLOG_START(); _CLOG; CLOG_END()
+#define CLOG1(_CLOG)  { CLOG_START(); _CLOG; CLOG_END(); }
 
 #include "math.h"
+
+
+Model *parse_obj_file(String obj_filename) 
+{
+    String obj = read_entire_file(obj_filename.data);    
+    
+    Model *m = new Model();
+
+    float r = 0.0f;
+    int ri = 0;
+    bool s = true;
+    String rem = obj;
+    
+    while (obj.count-1) {
+        if (*obj.data == 'v') {
+            string_advance(&obj, 2);
+            if (*obj.data != '-' && !IS_DIGIT(*obj.data)) continue;
+            Vector3 v = {0};
+            
+            r = string_to_float(obj, &s, &rem);
+            assert(s);
+            obj = rem;
+            v.x = r;
+
+            r = string_to_float(obj, &s, &rem);
+            assert(s);
+            obj = rem;
+            v.y = r;
+
+            r = string_to_float(obj, &s, &rem);
+            assert(s);
+            obj = rem;
+            v.z = r;
+
+            array_add(&m->vectors, v);
+        }
+        else if (*obj.data == 'f') {
+            string_advance(&obj, 2);
+            if (!(*obj.data >= '1' && *obj.data <= '9')) continue;
+
+            Face f = {0};
+
+            ri = string_to_int(obj, &s, &rem);
+            assert(s);
+            obj = rem;
+            f.v1 = ri-1;
+            
+            // skip not handled stuffs, every vertex index start after ' ' (space character)
+            obj = string_eat_until(obj, ' '); 
+            
+            ri = string_to_int(obj, &s, &rem);
+            assert(s);
+            obj = rem;
+            f.v2 = ri-1;
+            
+            // skip not handled stuffs, every vertex index start after ' ' (space character)
+            obj = string_eat_until(obj, ' ');
+            
+            ri = string_to_int(obj, &s, &rem);
+            assert(s);
+            obj = rem;
+            f.v3 = ri-1;
+            
+            array_add(&m->faces, f);
+        }
+        
+        string_advance(&obj);
+    }
+
+    string_free(&obj);
+
+    clog("obj parsed: " SFMT "\n", SARG(obj_filename));
+    clog("vertices: %d ; faces: %d\n", m->vectors.count, m->faces.count);
+    
+    return m;
+}
+
+inline Vector3 make_vector3(float x, float y, float z)
+{
+    return {x, y, z};
+}
 
 #endif 

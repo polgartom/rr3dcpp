@@ -1,13 +1,41 @@
 #ifndef _H_MY_MATH_
 #define _H_MY_MATH 1
 
-inline Vector3 multiply(Vector3 v, Matrix3 m) 
+inline Vector3 multiply(Vector3 v, Matrix3 m)
 {
     Vector3 r;
     r.x = (v.x * m._00) + (v.y * m._01) + (v.z * m._02);
     r.y = (v.x * m._10) + (v.y * m._11) + (v.z * m._12);
     r.z = (v.x * m._20) + (v.y * m._21) + (v.z * m._22);
-    
+
+    return r;
+}
+
+inline Vector3 multiply(Vector3 v, Matrix4 m)
+{
+    Vector3 r;
+    r.x = (v.x * m._00) + (v.y * m._10) + (v.z * m._20) + (m._30);
+    r.y = (v.x * m._01) + (v.y * m._11) + (v.z * m._21) + (m._31);
+    r.z = (v.x * m._02) + (v.y * m._12) + (v.z * m._22) + (m._32);
+    float w = (v.x * m._03) + (v.y * m._13) + (v.z * m._23) + (m._33);
+
+    if (w != 0.0f) {
+        r.x /= w;
+        r.y /= w;
+        r.z /= w;
+    }
+
+    return r;
+}
+
+inline Vector4 multiply(Vector4 v, Matrix4 m)
+{
+    Vector4 r;
+    r.x = (v.x * m._00) + (v.y * m._01) + (v.z * m._02) + (v.w * m._03);
+    r.y = (v.x * m._10) + (v.y * m._11) + (v.z * m._12) + (v.w * m._13);
+    r.z = (v.x * m._20) + (v.y * m._21) + (v.z * m._22) + (v.w * m._23);
+    r.w = (v.x * m._30) + (v.y * m._31) + (v.z * m._32) + (v.w * m._33);
+
     return r;
 }
 
@@ -31,13 +59,17 @@ inline void scale(Model *m, float scale)
     }
 }
 
-inline void rotate_x(Vector3 *v, float val) 
+inline void rotate_x(Vector3 *v, float theta)
 {
-    Matrix3 m = {
-        1.0f, 0.0f, 0.0f,
-        0.0f, (float)cos(val), (float)-sin(val),
-        0.0f, (float)sin(val), (float)cos(val),
-    };
+    Matrix4 m = {0};
+    ZERO_MEMORY(&m, sizeof(m));
+
+    m._00 = 1;
+    m._11 = cosf(theta * 0.5f);
+    m._12 = sinf(theta * 0.5f);
+    m._21 = -sinf(theta * 0.5f);
+    m._22 = cosf(theta * 0.5f);
+    m._33 = 1;
 
     Vector3 r = multiply(*v, m);
 
@@ -46,12 +78,12 @@ inline void rotate_x(Vector3 *v, float val)
     v->z = r.z;
 }
 
-inline void rotate_y(Vector3 *v, float val) 
+inline void rotate_y(Vector3 *v, float theta)
 {
     Matrix3 m = {
-        (float)cos(val), 0, (float)sin(val),
+        cosf(theta), 0, sinf(theta),
         0, 1, 0,
-        (float)-sin(val), 0, (float)cos(val),
+        -sinf(theta), 0, cosf(theta),
     };
 
     Vector3 r = multiply(*v, m);
@@ -61,13 +93,17 @@ inline void rotate_y(Vector3 *v, float val)
     v->z = r.z;
 }
 
-inline void rotate_z(Vector3 *v, float val) 
+inline void rotate_z(Vector3 *v, float theta)
 {
-    Matrix3 m = {
-        (float)cos(val), (float)-sin(val), 0,
-        (float)sin(val), (float)cos(val), 0,
-        1, 0, 1,
-    };
+    Matrix4 m = {0};
+    ZERO_MEMORY(&m, sizeof(m));
+
+    m._00 = cosf(theta);
+    m._01 = sinf(theta);
+    m._10 = -sinf(theta);
+    m._11 = cosf(theta);
+    m._22 = 1;
+    m._33 = 1;
 
     Vector3 r = multiply(*v, m);
 
@@ -80,27 +116,27 @@ inline void rotate_x(Model *m, float val)
 {
     m->rx += val;
 
-    for (int i = 0; i < m->vectors.count; i++) {
-        rotate_x(&m->vectors[i], val);
-    }
+    // for (int i = 0; i < m->vectors.count; i++) {
+    //     rotate_x(&m->vectors[i], val);
+    // }
 }
 
 inline void rotate_y(Model *m, float val)
 {
     m->ry += val;
 
-    for (int i = 0; i < m->vectors.count; i++) {
-        rotate_y(&m->vectors[i], val);
-    }
+    // for (int i = 0; i < m->vectors.count; i++) {
+    //     rotate_y(&m->vectors[i], val);
+    // }
 }
 
 inline void rotate_z(Model *m, float val)
 {
     m->rz += val;
 
-    for (int i = 0; i < m->vectors.count; i++) {
-        rotate_z(&m->vectors[i], val);
-    }
+    // for (int i = 0; i < m->vectors.count; i++) {
+    //     rotate_z(&m->vectors[i], val);
+    // }
 }
 
 #endif

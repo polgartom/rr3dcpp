@@ -37,81 +37,6 @@ inline float get_zbuf(int x, int y)
     return 0.0f;
 }
 
-Model *parse_obj_file(String obj_filename) 
-{
-    String obj = read_entire_file(obj_filename.data);    
-    
-    Model *m = new Model();
-
-    float r = 0.0f;
-    int ri = 0;
-    bool s = true;
-    String rem = obj;
-    
-    while (obj.count-1) {
-        if (*obj.data == 'v') {
-            string_advance(&obj, 2);
-            if (*obj.data != '-' && !IS_DIGIT(*obj.data)) continue;
-            Vector3 v = {0};
-            
-            r = string_to_float(obj, &s, &rem);
-            assert(s);
-            obj = rem;
-            v.x = r;
-
-            r = string_to_float(obj, &s, &rem);
-            assert(s);
-            obj = rem;
-            v.y = r;
-
-            r = string_to_float(obj, &s, &rem);
-            assert(s);
-            obj = rem;
-            v.z = r;
-
-            array_add(&m->vectors, v);
-        }
-        else if (*obj.data == 'f') {
-            string_advance(&obj, 2);
-            if (!(*obj.data >= '1' && *obj.data <= '9')) continue;
-
-            Face f = {0};
-
-            ri = string_to_int(obj, &s, &rem);
-            assert(s);
-            obj = rem;
-            f.v1 = ri-1;
-            
-            // skip not handled stuffs, every vertex index start after ' ' (space character)
-            obj = eat_string_until(obj, ' '); 
-            
-            ri = string_to_int(obj, &s, &rem);
-            assert(s);
-            obj = rem;
-            f.v2 = ri-1;
-            
-            // skip not handled stuffs, every vertex index start after ' ' (space character)
-            obj = eat_string_until(obj, ' ');
-            
-            ri = string_to_int(obj, &s, &rem);
-            assert(s);
-            obj = rem;
-            f.v3 = ri-1;
-            
-            array_add(&m->faces, f);
-        }
-        
-        string_advance(&obj);
-    }
-
-    string_free(&obj);
-
-    clog("obj parsed: " SFMT "\n", SARG(obj_filename));
-    clog("vertices: %d ; faces: %d\n", m->vectors.count, m->faces.count);
-    
-    return m;
-}
-
 inline float scr_x(float x)
 {
     return (x + 1.0) * WINDOW_WIDTH / 2;
@@ -132,46 +57,46 @@ inline float scr_rev_y(float y)
     return y * 2 / WINDOW_WIDTH - 1.0;
 }
 
-Vector3 z_scale(Vector3 v)
+inline Vector3 project(Vector3 v)
 {
-    float scale = 2.0f / (2.0f + v.z);
-    v.x = v.x * scale;
-    v.y = v.y * scale;
-    return v; 
+    float f_near = 0.1f;
+    float f_far  = 1000.0f;
+    float f_fov  = 90.0f;
+    float f_aspect_ratio = ((float)WINDOW_HEIGHT / (float)WINDOW_WIDTH);
+    float f_fov_rad = 1.0f / tanf(f_fov * 0.5f / 180.0f * 3.14159f);
+
+    Matrix4 m = {0};
+    ZERO_MEMORY(&m, sizeof(m));
+    m._00 = f_aspect_ratio * f_fov_rad;
+    m._11 = f_fov_rad;
+    m._22 = f_far / (f_far - f_near);
+    m._32 = (-f_far * f_near) / (f_far - f_near);
+    m._23 = 1.0f;
+    m._33 = 0.0f;
+
+    return multiply(v, m);
 }
 
-void transform_x(Model *m, float x)
+inline void transform_x(Model *m, float x)
 {
-    For (m->vectors) it->x += x;
+    m->x += x;
 }
 
-void transform_y(Model *m, float y)
+inline void transform_y(Model *m, float y)
 {
-    For (m->vectors) it->y += y;
+    m->y += y;
 }
 
-void transform_z(Model *m, float z)
+inline void transform_z(Model *m, float z)
 {
-    For (m->vectors) it->z += z;
+    m->z += z;
 }
 
 inline float map_z(float z, float zmin, float zmax)
 {
     // return 1.0 - ((z - zmax) / (zmin - zmax)) + 1.0;
-    return (1.0 - ((z - zmax) / (zmin - zmax)));
+    return (((z - zmax) / (zmin - zmax)));
 }
-
-inline Vector3 project_to_screen(Vector3 v)
-{
-    Vector3 r;
-    r.x = scr_x(v.x);
-    r.y = scr_y(v.y);
-    r.z = 0.0f;
-    
-    return r;
-}
-
-static float angle = 0.00f; 
 
 void draw_line(float x1, float y1, float x2, float y2, float z1, float z2, u32 color = RGB_COLOR(255, 255, 255))
 {
@@ -190,9 +115,9 @@ void draw_line(float x1, float y1, float x2, float y2, float z1, float z2, u32 c
     float xr1 = scr_x(x1);
     float xr2 = scr_x(x2);
     float delta = xr2 - xr1;
-    
+
     float z = max(z1, z2);
-    
+
     for (float x = xr1; x < xr2; x += 1.0f) {
         float t = (x - xr1) / delta;
         float y = y1*(1.0f-t) + (y2*t);
@@ -217,11 +142,14 @@ void draw_line(float x1, float y1, float x2, float y2, float z1, float z2, u32 c
 
 inline void draw_line(Vector3 start, Vector3 end, u32 color = RGB_COLOR(255, 255, 255))
 {
-    start = z_scale(start);
-    end = z_scale(end);
-    
-    if (start.x > 1.0f || start.x < -1.0f || start.y > 1.0f || start.y < -1.0f) return; 
-    
+    if (start.x > 1.0f || start.x < -1.0f || start.y > 1.0f || start.y < -1.0f || start.z < 0.1f || start.z > 1000.0f) {
+        return;
+    }
+
+    if (end.x > 1.0f || end.x < -1.0f || end.y > 1.0f || end.y < -1.0f || end.z < 0.1f || end.z > 1000.0f) {
+        return;
+    }
+
     draw_line(start.x, start.y, end.x, end.y, start.z, end.z, color);
 }
 
@@ -232,30 +160,30 @@ inline void draw_triangle(Vector3 v1, Vector3 v2, Vector3 v3, u32 color = RGB_CO
 {
 #if 0
     // Fill rectangle
-    
+
     float xmax = MAX3(v1.x, v2.x, v3.x);
     float xmin = MIN3(v1.x, v2.x, v3.x);
-    
+
     float ymax = MAX3(v1.y, v2.y, v3.y);
     float ymin = MIN3(v1.y, v2.y, v3.y);
-    
+
     float zmax = MAX3(v1.z, v2.z, v3.z);
     float zmin = MIN3(v1.z, v2.z, v3.z);
-    
+
     Vector3 *a, *b, *c = nullptr;
-    
+
     if (v1.y == ymin) a = &v1;
     else if (v2.y == ymin) a = &v2;
     else if (v3.y == ymin) a = &v3;
-    
+
     if (v1.y == ymax) b = &v1;
     else if (v2.y == ymax) b = &v2;
     else if (v3.y == ymax) b = &v3;
-    
+
     if (&v1 != a && &v1 != b) c = &v1;
     else if (&v2 != a && &v2 != b) c = &v2;
     else if (&v3 != a && &v3 != b) c = &v3;
-    
+
     float y1 = scr_y(a->y);
     float y2 = scr_y(b->y);
     float x = scr_x(a->x);
@@ -267,7 +195,7 @@ inline void draw_triangle(Vector3 v1, Vector3 v2, Vector3 v3, u32 color = RGB_CO
         x+=m;
     }
 #endif
- 
+
     draw_line(v1, v2, color);
     draw_line(v2, v3, color);
     draw_line(v3, v1, color);
@@ -275,33 +203,52 @@ inline void draw_triangle(Vector3 v1, Vector3 v2, Vector3 v3, u32 color = RGB_CO
 
 inline void draw_mesh(Model *m)
 {
-    // for (s64 i = 0; i < m->vectors.count; i++) {
-    //     Vector3 v = m->vectors[i];
-    //     // clog(VEC_FMT "\n", VEC_ARG(v));
-    //     scale(&v, ss);
-    //     rotate_y(&v, angle);
-    //     v = project_to_screen(v);
-    //     int x = (int)v.x;
-    //     int y = (int)v.y;
-
-    //     set_pixel(x, y, RGB_COLOR(255, 255, 255));
-    // }
-
-    for (s64 i = 0; i < m->faces.count; i++) {    
-        Face f = m->faces[i];
+    for (Face f : m->faces) {
         Vector3 v1 = m->vectors[f.v1];
         Vector3 v2 = m->vectors[f.v2];
         Vector3 v3 = m->vectors[f.v3];
+        
+        // Rotations
+        rotate_y(&v1, m->ry);
+        rotate_y(&v2, m->ry);
+        rotate_y(&v3, m->ry);
 
-        draw_triangle(v1, v2, v3, RGB_COLOR(200, 200, 200));
-    }    
-}
+        // Transform (offset)
+        v1.x += m->x; v2.x += m->x; v3.x += m->x;
+        v1.y += m->y; v2.y += m->y; v3.y += m->y;
+        v1.z += m->z; v2.z += m->z; v3.z += m->z;
+ 
+        // Vector3 normal, line1, line2 = {0};
+        // line1.x = v2.x - v1.x;
+        // line1.y = v2.y - v1.y;
+        // line1.z = v2.z - v1.z;
+        
+        // line2.x = v3.x - v1.x;
+        // line2.y = v3.y - v1.y;
+        // line2.z = v3.z - v1.z;
 
-inline void render_obj_file(Win32_Offscreen_Buffer *buffer, Model *m)
-{
-    angle += 0.010f;
+        // normal.x = line1.y * line2.z - line1.z * line2.y;
+        // normal.y = line1.z * line2.x - line1.x * line2.z;
+        // normal.z = line1.x * line2.y - line1.y * line2.x;
+
+        // float len = sqrtf(pow(normal.x, 2) + pow(normal.y, 2) + pow(normal.z, 2));
+        // normal.x /= len;
+        // normal.y /= len;
+        // normal.z /= len;
+
+        // if (normal.z < 0) return;
+        
+        // Projection
+        v1 = project(v1);
+        v2 = project(v2);
+        v3 = project(v3);
+        
+        // Scaling
+        // @Todo: put the scaling here
+        
+        draw_triangle(v1, v2, v3, RGB_COLOR(255, 255, 255));
+    }
     
-    draw_mesh(m);
 }
 
 int CALLBACK
@@ -311,10 +258,10 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
     Win32LoadXInput();
 
     WNDCLASSA window_class = {};
-    
+
     Win32ResizeDIBSection(&global_back_buffer, WINDOW_WIDTH, WINDOW_HEIGHT);
     clog("[Win32ResizeDIBSection]: %d %d\n", WINDOW_WIDTH, WINDOW_HEIGHT);
-    
+
     window_class.style = CS_HREDRAW|CS_VREDRAW;
     window_class.lpfnWndProc = MainWindowCallback;
     window_class.hInstance = instance;
@@ -342,12 +289,15 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
             global_running = true;
             int xoffset = 0;
             int yoffset = 0;
-            
+
             //Win32InitDSound();
 
             Model *m = parse_obj_file(string_create(".\\obj\\teddy.obj"));
             scale(m, 0.035f);
-            
+
+            // Model *m = parse_obj_file(string_create(".\\obj\\video_ship.obj"));
+            // scale(m, 0.5f);
+
             // Model *m = parse_obj_file(string_create(".\\obj\\cow.obj"));
             // scale(m, 0.12f);
 
@@ -356,32 +306,39 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
 
             // Model *m = parse_obj_file(string_create(".\\obj\\pumpkin.obj"));
             // scale(m, 0.07f);
-            
-            float zmax, zmin = 0.0f;
-            For_Index (m->vectors) {
-                auto it = &m->vectors[it_index];
+
+            float xmin = 0.0f; float ymin = 0.0f; float zmax = 0.0f; float zmin = 0.0f;
+
+            For (m->vectors) {
                 if (it->z > zmax) zmax = it->z;
-                if (it->z < zmin) zmin = it->z;
-            }
-            
-            For_Index (m->vectors) {
-                auto it = &m->vectors[it_index];
-                it->z = map_z(it->z, zmin, zmax) - 1.0;
-                CLOG_VEC(*it);
+                else if (it->z < zmin) zmin = it->z;
+
+                if (it->x < xmin) xmin = it->x;
+                if (it->y < ymin) ymin = it->y;
             }
 
+            For (m->vectors) {
+                // teddy -> apply -0.5f z offset to put balance the model rotation
+                it->z = map_z(it->z, zmin, zmax)-0.5;
+            }
+            
+            m->x = xmin;
+            m->y = ymin;
+            m->z = map_z(zmin, zmin, zmax)+0.0;
+
             u64 cycle = 0;
-            while (global_running) {            
+
+            while (global_running) {
                 MSG message;
                 while (PeekMessage(&message, 0, 0, 0, PM_REMOVE)) {
                     if (message.message == WM_QUIT) {
                         global_running = false;
                     }
-                    
+
                     TranslateMessage(&message);
                     DispatchMessageA(&message); // call the MainWindowCallback fn
                 }
-                
+
                 HDC device_context = GetDC(window);
                 Win32_Window_Dimension dimension = Win32GetWindowDimension(window);
                 if (WINDOW_WIDTH != dimension.width || WINDOW_HEIGHT != dimension.height) {
@@ -390,12 +347,20 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                     Win32ResizeDIBSection(&global_back_buffer, dimension.width, dimension.height);
                     clog("[Win32ResizeDIBSection]: %d %d\n", WINDOW_WIDTH, WINDOW_HEIGHT);
                 }
-                
+
                 ZERO_MEMORY(global_back_buffer.memory, global_back_buffer.bitmap_memory_size);
                 ZERO_MEMORY(global_back_buffer.zbuffer, global_back_buffer.bitmap_memory_size);
-                
-                // CLOG1(CLOG_D(vk_alt_was_down));
-                
+
+                // CLOG_START();
+                //     CLOG_F(m->x);
+                //     CLOG_F(m->y);
+                //     CLOG_F(m->z);
+                //     CLOG_F(m->rx);
+                //     CLOG_F(m->ry);
+                //     CLOG_F(m->rz);
+                // CLOG_END();
+                // CLOG_VEC(project({ m->x, m->y, m->z }));
+
                 if (vk_key_pressed == VK_UP) {
                     if (vk_alt_was_down) {
                         transform_z(m, 0.01);
@@ -408,7 +373,7 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                     } else {
                         transform_y(m, -0.01);
                     }
-                } else if (vk_key_pressed == VK_LEFT) {                    
+                } else if (vk_key_pressed == VK_LEFT) {
                     if (vk_alt_was_down) {
                         rotate_y(m, -0.01);
                     } else {
@@ -421,23 +386,24 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                         transform_x(m, 0.01);
                     }
                 }
-                
-                render_obj_file(&global_back_buffer, m);
-           
-                // for (u32 y = 0; y < WINDOW_HEIGHT; y++) {
-                //     for (u32 x = 0; x < WINDOW_WIDTH; x++) {
-                //         u32 p = get_pixel(x, y);
-                //         float zval = get_zbuf(x, y);
-                //         u8 r = ((p >> 16) & 0xFF) * (zval);
-                //         u8 g = ((p >> 8) & 0xFF) * (zval);
-                //         u8 b = ((p >> 0) & 0xFF) * (zval);
-                //         set_pixel(x, y, RGB_COLOR(r, g, b));
-                //     }
-                // }
-                
+
+                draw_mesh(m);
+#if 0
+                for (u32 y = 0; y < WINDOW_HEIGHT; y++) {
+                    for (u32 x = 0; x < WINDOW_WIDTH; x++) {
+                        u32 p = get_pixel(x, y);
+                        float zval = get_zbuf(x, y);
+                        // set_pixel(x, y, p * zval);
+                        u8 r = ((p >> 16) & 0xFF) * (zval);
+                        u8 g = ((p >> 8) & 0xFF) * (zval);
+                        u8 b = ((p >> 0) & 0xFF) * (zval);
+                        set_pixel(x, y, RGB_COLOR(r, g, b));
+                    }
+                }
+#endif
                 Win32DisplayBuffer(&global_back_buffer, device_context, dimension.width, dimension.height, 0, 0);
                 ReleaseDC(window, device_context);
-                
+
                 cycle++;
             }
         } else {
