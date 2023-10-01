@@ -132,6 +132,29 @@ inline float scr_rev_y(float y)
     return y * 2 / WINDOW_WIDTH - 1.0;
 }
 
+Vector3 z_scale(Vector3 v)
+{
+    float scale = 2.0f / (2.0f + v.z);
+    v.x = v.x * scale;
+    v.y = v.y * scale;
+    return v; 
+}
+
+void transform_x(Model *m, float x)
+{
+    For (m->vectors) it->x += x;
+}
+
+void transform_y(Model *m, float y)
+{
+    For (m->vectors) it->y += y;
+}
+
+void transform_z(Model *m, float z)
+{
+    For (m->vectors) it->z += z;
+}
+
 inline float map_z(float z, float zmin, float zmax)
 {
     // return 1.0 - ((z - zmax) / (zmin - zmax)) + 1.0;
@@ -167,18 +190,14 @@ void draw_line(float x1, float y1, float x2, float y2, float z1, float z2, u32 c
     float xr1 = scr_x(x1);
     float xr2 = scr_x(x2);
     float delta = xr2 - xr1;
-
-    // float z = max(z1, z2);
+    
     float z = max(z1, z2);
-    // if (z < 0.0f || z >= 1.0f) return;
     
     for (float x = xr1; x < xr2; x += 1.0f) {
         float t = (x - xr1) / delta;
         float y = y1*(1.0f-t) + (y2*t);
         // float z = z1*(1.0f-t) + (z2*t);
         y = scr_y(y);
-
-        // if (z > 0.00001f) {
 
         if (steep) {
             set_pixel(y, x, color);
@@ -198,12 +217,12 @@ void draw_line(float x1, float y1, float x2, float y2, float z1, float z2, u32 c
 
 inline void draw_line(Vector3 start, Vector3 end, u32 color = RGB_COLOR(255, 255, 255))
 {
-    float x1 = start.x;
-    float y1 = start.y;
-    float x2 = end.x;
-    float y2 = end.y;
+    start = z_scale(start);
+    end = z_scale(end);
     
-    draw_line(x1, y1, x2, y2, start.z, end.z, color);
+    if (start.x > 1.0f || start.x < -1.0f || start.y > 1.0f || start.y < -1.0f) return; 
+    
+    draw_line(start.x, start.y, end.x, end.y, start.z, end.z, color);
 }
 
 #define MAX3(_a, _b, _c) (max(_c, max(_a, _b)))
@@ -211,6 +230,9 @@ inline void draw_line(Vector3 start, Vector3 end, u32 color = RGB_COLOR(255, 255
 
 inline void draw_triangle(Vector3 v1, Vector3 v2, Vector3 v3, u32 color = RGB_COLOR(255, 255, 255))
 {
+#if 0
+    // Fill rectangle
+    
     float xmax = MAX3(v1.x, v2.x, v3.x);
     float xmin = MIN3(v1.x, v2.x, v3.x);
     
@@ -239,13 +261,16 @@ inline void draw_triangle(Vector3 v1, Vector3 v2, Vector3 v3, u32 color = RGB_CO
     float x = scr_x(a->x);
     float m = ((a->x - b->x) / (a->y - b->y));
     for (float y = y1; y < y2; y += 1.0f) {
-        draw_line(scr_rev_x(x), scr_rev_y(y), c->x, c->y, zmin, zmax, color);
+        Vector3 vs1 =  {scr_rev_x(x), scr_rev_y(y), zmin};
+        Vector3 vs2 = {c->x, c->y, zmax};
+        draw_line(vs1.x, vs1.y, vs2.x, vs2.y, vs1.z, vs2.z, color);
         x+=m;
     }
+#endif
  
-    // draw_line(v1, v2, color);
-    // draw_line(v2, v3, color);
-    // draw_line(v3, v1, color);
+    draw_line(v1, v2, color);
+    draw_line(v2, v3, color);
+    draw_line(v3, v1, color);
 }
 
 inline void draw_mesh(Model *m)
@@ -268,10 +293,6 @@ inline void draw_mesh(Model *m)
         Vector3 v2 = m->vectors[f.v2];
         Vector3 v3 = m->vectors[f.v3];
 
-        rotate_y(&v1, angle);
-        rotate_y(&v2, angle);
-        rotate_y(&v3, angle);
-        
         draw_triangle(v1, v2, v3, RGB_COLOR(200, 200, 200));
     }    
 }
@@ -325,20 +346,8 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
             //Win32InitDSound();
 
             Model *m = parse_obj_file(string_create(".\\obj\\teddy.obj"));
-            scale(m, 0.045f);
+            scale(m, 0.035f);
             
-            float zmax, zmin = 0.0f;
-            For (m->vectors) {
-                if (it->z > zmax) zmax = it->z;
-                if (it->z < zmin) zmin = it->z;
-            }
-            
-            For_Index (m->vectors) {
-                auto it = &m->vectors[it_index];
-                it->z = map_z(it->z, zmin, zmax) - 0.5;
-                PRINT_VEC(*it);
-            }
-
             // Model *m = parse_obj_file(string_create(".\\obj\\cow.obj"));
             // scale(m, 0.12f);
 
@@ -347,6 +356,19 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
 
             // Model *m = parse_obj_file(string_create(".\\obj\\pumpkin.obj"));
             // scale(m, 0.07f);
+            
+            float zmax, zmin = 0.0f;
+            For_Index (m->vectors) {
+                auto it = &m->vectors[it_index];
+                if (it->z > zmax) zmax = it->z;
+                if (it->z < zmin) zmin = it->z;
+            }
+            
+            For_Index (m->vectors) {
+                auto it = &m->vectors[it_index];
+                it->z = map_z(it->z, zmin, zmax) - 1.0;
+                CLOG_VEC(*it);
+            }
 
             u64 cycle = 0;
             while (global_running) {            
@@ -371,45 +393,47 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                 
                 ZERO_MEMORY(global_back_buffer.memory, global_back_buffer.bitmap_memory_size);
                 ZERO_MEMORY(global_back_buffer.zbuffer, global_back_buffer.bitmap_memory_size);
-                render_obj_file(&global_back_buffer, m);
-           
-                // draw_triangle(
-                //     {-0.8, -0.5, 0},
-                //     {0.0, 0.1, 0},
-                //     {-1.0, 0.8, 0}
-                // );
                 
-                // draw_triangle(
-                //     {-0.8, -0.5, 0},
-                //     {0.0, 0.8, 0},
-                //     {0.8, -0.5, 0},
-                //     RGB_COLOR(200, 50, 90)
-                // );
+                // CLOG1(CLOG_D(vk_alt_was_down));
                 
-                // draw_triangle(
-                //     {0.7, -0.5, 0},
-                //     {0.2, 0.5, 0},
-                //     {0.0, 0.7, 0},
-                //     RGB_COLOR(50, 200, 100)
-                // );
-                
-                // draw_triangle(
-                //     {-0.7, -0.3, 0},
-                //     {0.6, -0.4, 0},
-                //     {0.7f, -0.45, 0},
-                //     RGB_COLOR(50, 100, 200)
-                // );
-                
-                for (u32 y = 0; y < WINDOW_HEIGHT; y++) {
-                    for (u32 x = 0; x < WINDOW_WIDTH; x++) {
-                        u32 p = get_pixel(x, y);
-                        float zval = get_zbuf(x, y);
-                        u8 r = ((p >> 16) & 0xFF) * (zval);
-                        u8 g = ((p >> 8) & 0xFF) * (zval);
-                        u8 b = ((p >> 0) & 0xFF) * (zval);
-                        set_pixel(x, y, RGB_COLOR(r, g, b));
+                if (vk_key_pressed == VK_UP) {
+                    if (vk_alt_was_down) {
+                        transform_z(m, 0.01);
+                    } else {
+                        transform_y(m, 0.01);
+                    }
+                } else if (vk_key_pressed == VK_DOWN) {
+                    if (vk_alt_was_down) {
+                        transform_z(m, -0.01);
+                    } else {
+                        transform_y(m, -0.01);
+                    }
+                } else if (vk_key_pressed == VK_LEFT) {                    
+                    if (vk_alt_was_down) {
+                        rotate_y(m, -0.01);
+                    } else {
+                        transform_x(m, -0.01);
+                    }
+                } else if (vk_key_pressed == VK_RIGHT) {
+                    if (vk_alt_was_down) {
+                        rotate_y(m, 0.01);
+                    } else {
+                        transform_x(m, 0.01);
                     }
                 }
+                
+                render_obj_file(&global_back_buffer, m);
+           
+                // for (u32 y = 0; y < WINDOW_HEIGHT; y++) {
+                //     for (u32 x = 0; x < WINDOW_WIDTH; x++) {
+                //         u32 p = get_pixel(x, y);
+                //         float zval = get_zbuf(x, y);
+                //         u8 r = ((p >> 16) & 0xFF) * (zval);
+                //         u8 g = ((p >> 8) & 0xFF) * (zval);
+                //         u8 b = ((p >> 0) & 0xFF) * (zval);
+                //         set_pixel(x, y, RGB_COLOR(r, g, b));
+                //     }
+                // }
                 
                 Win32DisplayBuffer(&global_back_buffer, device_context, dimension.width, dimension.height, 0, 0);
                 ReleaseDC(window, device_context);

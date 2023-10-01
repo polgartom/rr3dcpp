@@ -31,12 +31,12 @@ inline void scale(Model *m, float scale)
     }
 }
 
-inline void rotate_x(Vector3 *v, float angle) 
+inline void rotate_x(Vector3 *v, float val) 
 {
     Matrix3 m = {
         1.0f, 0.0f, 0.0f,
-        0.0f, (float)cos(angle), (float)-sin(angle),
-        0.0f, (float)sin(angle), (float)cos(angle),
+        0.0f, (float)cos(val), (float)-sin(val),
+        0.0f, (float)sin(val), (float)cos(val),
     };
 
     Vector3 r = multiply(*v, m);
@@ -46,19 +46,12 @@ inline void rotate_x(Vector3 *v, float angle)
     v->z = r.z;
 }
 
-inline void rotate_x(Model *m, float scale)
-{
-    for (int i = 0; i < m->vectors.count; i++) {
-        rotate_x(&m->vectors[i], scale);
-    }
-}
-
-inline void rotate_y(Vector3 *v, float angle) 
+inline void rotate_y(Vector3 *v, float val) 
 {
     Matrix3 m = {
-        (float)cos(angle), 0, (float)sin(angle),
+        (float)cos(val), 0, (float)sin(val),
         0, 1, 0,
-        (float)-sin(angle), 0, (float)cos(angle),
+        (float)-sin(val), 0, (float)cos(val),
     };
 
     Vector3 r = multiply(*v, m);
@@ -68,18 +61,11 @@ inline void rotate_y(Vector3 *v, float angle)
     v->z = r.z;
 }
 
-inline void rotate_y(Model *m, float scale)
-{
-    for (int i = 0; i < m->vectors.count; i++) {
-        rotate_y(&m->vectors[i], scale);
-    }
-}
-
-inline void rotate_z(Vector3 *v, float angle) 
+inline void rotate_z(Vector3 *v, float val) 
 {
     Matrix3 m = {
-        (float)cos(angle), (float)-sin(angle), 0,
-        (float)sin(angle), (float)cos(angle), 0,
+        (float)cos(val), (float)-sin(val), 0,
+        (float)sin(val), (float)cos(val), 0,
         1, 0, 1,
     };
 
@@ -90,10 +76,30 @@ inline void rotate_z(Vector3 *v, float angle)
     v->z = r.z;
 }
 
-inline void rotate_z(Model *m, float scale)
+inline void rotate_x(Model *m, float val)
 {
+    m->rx += val;
+
     for (int i = 0; i < m->vectors.count; i++) {
-        rotate_z(&m->vectors[i], scale);
+        rotate_x(&m->vectors[i], val);
+    }
+}
+
+inline void rotate_y(Model *m, float val)
+{
+    m->ry += val;
+
+    for (int i = 0; i < m->vectors.count; i++) {
+        rotate_y(&m->vectors[i], val);
+    }
+}
+
+inline void rotate_z(Model *m, float val)
+{
+    m->rz += val;
+
+    for (int i = 0; i < m->vectors.count; i++) {
+        rotate_z(&m->vectors[i], val);
     }
 }
 

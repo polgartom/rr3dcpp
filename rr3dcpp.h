@@ -65,6 +65,9 @@ struct Face {
 
 struct Model {
     float scale = 1.0f;
+    float rx = 0.0f;
+    float ry = 0.0f;
+    float rz = 0.0f;
 
     Array<Vector3> vectors;
     Array<Face>    faces;
@@ -109,7 +112,17 @@ inline void swap(float *a, float *b)
     *b = t;
 }
 
-#define PRINT_VEC(_v) clog("{ x: %f ; y: %f ; z: %f }\n", (_v).x, (_v).y, (_v).z);
+#define CLOG_VEC(_v) clog("{ x: %f ; y: %f ; z: %f }\n", (_v).x, (_v).y, (_v).z);
+
+#define CLOG_START()  clog("{ ")
+#define CLOG_F(_f)    clog(XSTR(_f) ": %f ; ", _f)
+#define CLOG_D(_d)    clog(XSTR(_d) ": %d ; ", _d)
+#define CLOG_LD(_ld)  clog(XSTR(_ld) ": %ld ; ", _ld)
+#define CLOG_CS(_cs)  clog(XSTR(_cs) ": %s ; ", _cs)
+// new_string.h
+#define CLOG_S(_s)    clog(XSTR(_s) ": " SFMT " ; ", SARG(_s))
+#define CLOG_END()    clog("}\n")
+#define CLOG1(_CLOG)  CLOG_START(); _CLOG; CLOG_END()
 
 #include "math.h"
 

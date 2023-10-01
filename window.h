@@ -62,6 +62,10 @@ global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
 #define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter)
 typedef DIRECT_SOUND_CREATE(direct_sound_create);
 
+// kacsa
+uint32 vk_key_pressed = 0;
+bool vk_alt_was_down = false;
+
 internal void
 Win32LoadXInput(void)
 {
@@ -200,6 +204,12 @@ MainWindowCallback(HWND window, UINT message, WPARAM w_param, LPARAM l_param)
             bool was_down  = (l_param & (1 << 30)) != 0;
             bool is_down   = (l_param & (1 << 31)) == 0; 
             
+            vk_key_pressed = 0;
+            if (is_down) {
+                vk_key_pressed = vk_code;
+                // kacsa   
+            }
+            
             if (is_down != was_down) {
                 if (vk_code == 'W') {
                 }
@@ -234,8 +244,8 @@ MainWindowCallback(HWND window, UINT message, WPARAM w_param, LPARAM l_param)
                 }
             }
             
-            bool alt_key_was_down = (l_param & (1 << 29)) != 0;
-            if (vk_code == VK_F4 && alt_key_was_down) {
+            vk_alt_was_down = (l_param & (1 << 29)) != 0;
+            if (vk_code == VK_F4 && vk_alt_was_down) {
                 global_running = false;
             }
             
