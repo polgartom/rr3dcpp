@@ -73,6 +73,8 @@ struct Face {
 };
 
 struct Model {
+    String name;
+
     float x, y, z = 0.0f;
     float scale = 1.0f;
     float rx = 0.0f;

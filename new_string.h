@@ -115,6 +115,16 @@ inline bool string_equal_cstr(String a, char *b)
     return string_equal(a, string_create(b));
 }
 
+inline bool operator==(String &lhs, String &rhs)
+{
+    return string_equal(lhs, rhs);
+}
+
+inline bool operator==(String &lhs, char *rhs)
+{
+    return string_equal_cstr(lhs, rhs);
+}
+
 String string_trim_white(String s)
 {
     // Trim left

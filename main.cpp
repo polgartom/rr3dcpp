@@ -218,25 +218,30 @@ inline void draw_mesh(Model *m)
         v1.y += m->y; v2.y += m->y; v3.y += m->y;
         v1.z += m->z; v2.z += m->z; v3.z += m->z;
  
-        // Vector3 normal, line1, line2 = {0};
-        // line1.x = v2.x - v1.x;
-        // line1.y = v2.y - v1.y;
-        // line1.z = v2.z - v1.z;
+        Vector3 normal, line1, line2 = {0};
+        line1.x = v2.x - v1.x;
+        line1.y = v2.y - v1.y;
+        line1.z = v2.z - v1.z;
         
-        // line2.x = v3.x - v1.x;
-        // line2.y = v3.y - v1.y;
-        // line2.z = v3.z - v1.z;
+        line2.x = v3.x - v1.x;
+        line2.y = v3.y - v1.y;
+        line2.z = v3.z - v1.z;
 
-        // normal.x = line1.y * line2.z - line1.z * line2.y;
-        // normal.y = line1.z * line2.x - line1.x * line2.z;
-        // normal.z = line1.x * line2.y - line1.y * line2.x;
+        normal.x = line1.y * line2.z - line1.z * line2.y;
+        normal.y = line1.z * line2.x - line1.x * line2.z;
+        normal.z = line1.x * line2.y - line1.y * line2.x;
 
-        // float len = sqrtf(pow(normal.x, 2) + pow(normal.y, 2) + pow(normal.z, 2));
-        // normal.x /= len;
-        // normal.y /= len;
-        // normal.z /= len;
+        float len = sqrtf(pow(normal.x, 2) + pow(normal.y, 2) + pow(normal.z, 2));
+        normal.x /= len;
+        normal.y /= len;
+        normal.z /= len;
 
-        // if (normal.z < 0) return;
+        // if (normal.z < 0) {
+        if (normal.x * (v1.x - 0) +
+            normal.y * (v1.y - 0) +
+            normal.z * (v1.z - 0) > 0.0f /* or < 0.0f, it depends */) {
+            continue;
+        }
         
         // Projection
         v1 = project(v1);
@@ -244,8 +249,7 @@ inline void draw_mesh(Model *m)
         v3 = project(v3);
         
         // Scaling
-        // @Todo: put the scaling here
-        
+        // @Todo: put the scaling here        
         draw_triangle(v1, v2, v3, RGB_COLOR(255, 255, 255));
     }
     
@@ -293,6 +297,7 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
             //Win32InitDSound();
 
             Model *m = parse_obj_file(string_create(".\\obj\\teddy.obj"));
+            m->name = string_create("teddy");
             scale(m, 0.035f);
 
             // Model *m = parse_obj_file(string_create(".\\obj\\video_ship.obj"));
@@ -302,10 +307,8 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
             // scale(m, 0.12f);
 
             // Model *m = parse_obj_file(string_create(".\\obj\\teapot.obj"));
+            // m->name = string_create("teapot");
             // scale(m, 0.27f);
-
-            // Model *m = parse_obj_file(string_create(".\\obj\\pumpkin.obj"));
-            // scale(m, 0.07f);
 
             float xmin = 0.0f; float ymin = 0.0f; float zmax = 0.0f; float zmin = 0.0f;
 
@@ -317,11 +320,14 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                 if (it->y < ymin) ymin = it->y;
             }
 
-            For (m->vectors) {
-                // teddy -> apply -0.5f z offset to put balance the model rotation
-                it->z = map_z(it->z, zmin, zmax)-0.5;
+            if (m->name == "teddy") {
+                For (m->vectors) {
+                    // teddy -> apply -0.5f z offset to put balance the model rotation
+                    // it->z += 0.5f;
+                    // it->z = map_z(it->z, zmin, zmax)-0.5;
+                }
             }
-            
+                        
             m->x = xmin;
             m->y = ymin;
             m->z = map_z(zmin, zmin, zmax)+0.0;
