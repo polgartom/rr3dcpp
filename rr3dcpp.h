@@ -155,9 +155,9 @@ Model *parse_obj_file(String obj_filename)
     String rem = obj;
     
     while (obj.count-1) {
-        if (*obj.data == 'v') {
+        if (SCHAR(obj) == 'v') {
             advance(&obj, 2);
-            if (*obj.data != '-' && !IS_DIGIT(*obj.data)) continue;
+            if (SCHAR(obj) != '-' && !IS_DIGIT(SCHAR(obj))) continue;
             Vector3 v = {0};
             
             r = string_to_float(obj, &s, &rem);
@@ -177,9 +177,9 @@ Model *parse_obj_file(String obj_filename)
 
             array_add(&m->vectors, v);
         }
-        else if (*obj.data == 'f') {
+        else if (SCHAR(obj) == 'f') {
             advance(&obj, 2);
-            if (!(*obj.data >= '1' && *obj.data <= '9')) continue;
+            if (!(SCHAR(obj) >= '1' && SCHAR(obj) <= '9')) continue;
 
             Face f = {0};
 

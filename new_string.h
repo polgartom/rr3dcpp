@@ -11,6 +11,12 @@
 #define IS_ALNUM(c) (IS_ALPHA(c) || IS_DIGIT(c) || c == '_')
 #define IS_SPACE(c) ((c) == ' ' || (c) == '\t' || (c) == '\r' || (c) == '\n')
 
+#define SFMT "%.*s"
+#define SARG(__s) (int) (__s).count, (__s).data 
+// Usage: printf("This is an example: " SFMT "\n", SARG(value));
+
+#define SCHAR(s) (*s.data)
+
 struct String {
     char *data;
     char *alloc_location; // If allocated on the heap
@@ -29,12 +35,13 @@ struct String {
         String new_s = String(rhs);
         STRUCT_COPY(*this, new_s);
     }
-    
+
 };
 
-#define SFMT "%.*s"
-#define SARG(__s) (int) (__s).count, (__s).data 
-// Usage: printf("This is an example: " SFMT "\n", SARG(value));
+inline char schar(String &s)
+{
+    return *s.data;
+}
 
 inline String string_create(const char *data)
 {
