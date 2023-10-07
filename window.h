@@ -3,6 +3,7 @@
 #include <xinput.h>
 #include <dsound.h>
 #include <d3d9.h>
+#include <windowsx.h>
 
 void clog(const char *__fmt_msg, ...);
 
@@ -65,6 +66,9 @@ typedef DIRECT_SOUND_CREATE(direct_sound_create);
 // kacsa
 uint32 vk_key_pressed = 0;
 bool vk_alt_was_down = false;
+s32 mouse_x = 0;
+s32 mouse_y = 0;
+bool mouse_left_down = false;
 
 internal void
 Win32LoadXInput(void)
@@ -180,6 +184,8 @@ MainWindowCallback(HWND window, UINT message, WPARAM w_param, LPARAM l_param)
 {
     LRESULT result = 0;
 
+    mouse_left_down = false;
+
     switch (message) {
         case WM_SIZE: {
             break;
@@ -194,6 +200,13 @@ MainWindowCallback(HWND window, UINT message, WPARAM w_param, LPARAM l_param)
         }
         case WM_ACTIVATEAPP: {
             OutputDebugStringA("WM_ACTIVATEAPP\n");
+            break;
+        }
+        case WM_MOUSEMOVE:
+        case WM_LBUTTONDOWN: {
+            mouse_x = GET_X_LPARAM(l_param); 
+            mouse_y = GET_Y_LPARAM(l_param); 
+            mouse_left_down = w_param & MK_LBUTTON;
             break;
         }
         case WM_SYSKEYDOWN:

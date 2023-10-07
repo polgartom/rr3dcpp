@@ -76,15 +76,18 @@ struct Face {
 struct Model {
     String name;
 
+    u8 r, g, b = 254;
+
     float x, y, z = 0.0f;
+    float w, h, zh = 0.0f;
+    
     float scale = 1.0f;
     float rx = 0.0f;
     float ry = 0.0f;
     float rz = 0.0f;
-        
-    float sx = 0.0f;
-    float sy = 0.0f;
-
+    
+    float sx, sy, sw, sh = 0.0f;
+    
     Array<Vector3> vectors;
     Array<Face>    faces;
 };
@@ -141,7 +144,6 @@ inline void swap(float *a, float *b)
 #define CLOG1(_CLOG)  { CLOG_START(); _CLOG; CLOG_END(); }
 
 #include "math.h"
-
 
 Model *parse_obj_file(String obj_filename) 
 {
