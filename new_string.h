@@ -16,23 +16,19 @@ struct String {
     char *alloc_location; // If allocated on the heap
     int count;
 
-    // @Todo: Ref counting
-    // ~String() {
-    //     if (this->alloc_location != nullptr && this->ref_count == 0) {
-    //         free(this->alloc_location);
-    //     }
-    // }
+    String () {}
     
-    // String(const String &s) {
-    //     String sr = const_cast<String>(s);
-    //     sr.ref_count++;
-    // }
-    
-    // // copy assignment operator
-    // String& operator=(const String &s) {
-    //     String sr = const_cast<String>(s);
-    //     sr.ref_count++;
-    // };
+    String (const char *s)
+    {
+        data  = (char *)s;
+        count = strlen(s);
+    }
+
+    inline void operator=(const char *rhs)
+    {
+        String new_s = String(rhs);
+        STRUCT_COPY(*this, new_s);
+    }
     
 };
 
@@ -40,16 +36,12 @@ struct String {
 #define SARG(__s) (int) (__s).count, (__s).data 
 // Usage: printf("This is an example: " SFMT "\n", SARG(value));
 
-String string_create(char *data)
+inline String string_create(const char *data)
 {
-    String s;
-    s.data  = data;
-    s.count = strlen(data);
-    
-    return s;
+    return String(data);
 }
 
-String string_make_alloc(unsigned int size)
+inline String string_make_alloc(unsigned int size)
 {
     String s;
     s.alloc_location = (char *)malloc(size+1);
@@ -68,7 +60,7 @@ inline void string_free(String *s)
     }
 }
 
-inline String string_advance(String s, unsigned int step = 1)
+inline String advance(String s, unsigned int step = 1)
 {
     assert(s.count >= step && step >= 0);
 
@@ -78,14 +70,14 @@ inline String string_advance(String s, unsigned int step = 1)
     return s;
 }
 
-inline void string_advance(String *s, unsigned int step = 1) 
+inline void advance(String *s, unsigned int step = 1) 
 {
-    String r = string_advance(*s, step);
+    String r = advance(*s, step);
     s->data = r.data;
     s->count = r.count;
 }
 
-char *string_to_cstr(String s)
+inline char *string_to_cstr(String s)
 {
     // @Leak:
     char *c_str = (char *)memset(((char *)malloc(s.count+1)), 0, (s.count+1));
@@ -93,7 +85,7 @@ char *string_to_cstr(String s)
     return c_str;
 }
 
-bool string_equal(String a, String b)
+inline bool string_equal(String a, String b)
 {
     if (a.count != b.count) return false;
     int max_count = a.count > b.count ? a.count : b.count;
@@ -104,28 +96,12 @@ bool string_equal(String a, String b)
     return true;
 }
 
-// inline bool *string_equal_nocase(String a, String b)
-// {
-//     // @Todo
-//     assert(0);
-// }
-
 inline bool string_equal_cstr(String a, char *b)
 {
     return string_equal(a, string_create(b));
 }
 
-inline bool operator==(String &lhs, String &rhs)
-{
-    return string_equal(lhs, rhs);
-}
-
-inline bool operator==(String &lhs, char *rhs)
-{
-    return string_equal_cstr(lhs, rhs);
-}
-
-String string_trim_white(String s)
+inline String string_trim_white(String s)
 {
     // Trim left
     while (s.count && IS_SPACE(*s.data)) {
@@ -141,14 +117,10 @@ String string_trim_white(String s)
     return s;
 }
 
-int string_to_int(String s, bool *failed)
+inline void string_trim_white(String *s)
 {
-    char *cstr = string_to_cstr(s);
-    int num    = atoi(cstr);
-    free(cstr);
-    if (num == 0 && !string_equal_cstr(s, "0")) *failed = true;
-
-    return num; 
+    String r = string_trim_white(*s);
+    STRUCT_COPY(*s, r);
 }
 
 int string_to_int(String s, bool *success, String *remained)
@@ -190,10 +162,20 @@ float string_to_float(String s, bool *success, String *remained)
 inline String string_eat_until(String s, const char c)
 {
     while (*s.data && *s.data != c) {
-        string_advance(&s);
+        advance(&s);
     }
     
     return s;
+}
+
+inline bool operator==(String &lhs, String &rhs)
+{
+    return string_equal(lhs, rhs);
+}
+
+inline bool operator==(String &lhs, char *rhs)
+{
+    return string_equal_cstr(lhs, rhs);
 }
 
 #endif

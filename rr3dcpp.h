@@ -42,6 +42,7 @@ void clog(const char *__fmt_msg, ...);
 // #define CSTR_EQUAL(str1, str2) (strcmp(str1, str2) == 0)
 #define CSTR_LEN(x) (x != NULL ? strlen(x) : 0)
 #define XSTR(x) #x
+#define STRUCT_COPY(dest, src) (memcpy(&dest, &src, sizeof(dest)))
 
 #include "new_string.h"
 #include "array.h"
@@ -155,7 +156,7 @@ Model *parse_obj_file(String obj_filename)
     
     while (obj.count-1) {
         if (*obj.data == 'v') {
-            string_advance(&obj, 2);
+            advance(&obj, 2);
             if (*obj.data != '-' && !IS_DIGIT(*obj.data)) continue;
             Vector3 v = {0};
             
@@ -177,7 +178,7 @@ Model *parse_obj_file(String obj_filename)
             array_add(&m->vectors, v);
         }
         else if (*obj.data == 'f') {
-            string_advance(&obj, 2);
+            advance(&obj, 2);
             if (!(*obj.data >= '1' && *obj.data <= '9')) continue;
 
             Face f = {0};
@@ -206,7 +207,7 @@ Model *parse_obj_file(String obj_filename)
             array_add(&m->faces, f);
         }
         
-        string_advance(&obj);
+        advance(&obj);
     }
 
     string_free(&obj);

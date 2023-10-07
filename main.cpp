@@ -159,7 +159,7 @@ inline void draw_line(Vector3 start, Vector3 end, u32 color = RGB_COLOR(255, 255
 inline void draw_triangle(Vector3 v1, Vector3 v2, Vector3 v3, u32 color = RGB_COLOR(255, 255, 255))
 {
 #if 0
-    // Fill rectangle
+    // Fill triangle
 
     float xmax = MAX3(v1.x, v2.x, v3.x);
     float xmin = MIN3(v1.x, v2.x, v3.x);
@@ -199,6 +199,7 @@ inline void draw_triangle(Vector3 v1, Vector3 v2, Vector3 v3, u32 color = RGB_CO
     draw_line(v1, v2, color);
     draw_line(v2, v3, color);
     draw_line(v3, v1, color);
+    
 }
 
 inline void draw_mesh(Model *m)
@@ -295,20 +296,26 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
             int yoffset = 0;
 
             //Win32InitDSound();
-
-            Model *m = parse_obj_file(string_create(".\\obj\\teddy.obj"));
-            m->name = string_create("teddy");
+            
+            Model *m = parse_obj_file(".\\obj\\teddy.obj");
+            m->name = "teddy";
+            m->ry = 3.0f;
+            m->x = 300.0f;
             scale(m, 0.035f);
 
-            // Model *m = parse_obj_file(string_create(".\\obj\\video_ship.obj"));
+            // Model *m = parse_obj_file((".\\obj\\video_ship.obj"));
+            // m->name = "video ship";
             // scale(m, 0.5f);
 
-            // Model *m = parse_obj_file(string_create(".\\obj\\cow.obj"));
+            // Model *m = parse_obj_file((".\\obj\\cow.obj"));
+            // m->name = "cow";
             // scale(m, 0.12f);
 
-            // Model *m = parse_obj_file(string_create(".\\obj\\teapot.obj"));
-            // m->name = string_create("teapot");
+            // Model *m = parse_obj_file((".\\obj\\teapot.obj"));
+            // m->name = "teapot";
             // scale(m, 0.27f);
+
+            clog("Loaded model name: " SFMT "\n", SARG(m->name));
 
             float xmin = 0.0f; float ymin = 0.0f; float zmax = 0.0f; float zmin = 0.0f;
 
@@ -320,17 +327,17 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                 if (it->y < ymin) ymin = it->y;
             }
 
-            if (m->name == "teddy") {
-                For (m->vectors) {
-                    // teddy -> apply -0.5f z offset to put balance the model rotation
-                    // it->z += 0.5f;
-                    // it->z = map_z(it->z, zmin, zmax)-0.5;
-                }
-            }
+            // if (m->name == "teddy") {
+            //     For (m->vectors) {
+            //         // teddy -> apply -0.5f z offset to put balance the model rotation
+            //         // it->z += 0.5f;
+            //         // it->z = map_z(it->z, zmin, zmax)-0.5;
+            //     }
+            // }
                         
-            m->x = xmin;
-            m->y = ymin;
-            m->z = map_z(zmin, zmin, zmax)+0.0;
+            m->x = xmin / 2;
+            m->y = ymin / 2;
+            m->z = map_z(zmin, zmin, zmax);
 
             u64 cycle = 0;
 
@@ -357,15 +364,15 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                 ZERO_MEMORY(global_back_buffer.memory, global_back_buffer.bitmap_memory_size);
                 ZERO_MEMORY(global_back_buffer.zbuffer, global_back_buffer.bitmap_memory_size);
 
-                // CLOG_START();
-                //     CLOG_F(m->x);
-                //     CLOG_F(m->y);
-                //     CLOG_F(m->z);
-                //     CLOG_F(m->rx);
-                //     CLOG_F(m->ry);
-                //     CLOG_F(m->rz);
-                // CLOG_END();
-                // CLOG_VEC(project({ m->x, m->y, m->z }));
+                CLOG_START();
+                    CLOG_F(m->x);
+                    CLOG_F(m->y);
+                    CLOG_F(m->z);
+                    CLOG_F(m->rx);
+                    CLOG_F(m->ry);
+                    CLOG_F(m->rz);
+                CLOG_END();
+                CLOG_VEC(project({ m->x, m->y, m->z }));
 
                 if (vk_key_pressed == VK_UP) {
                     if (vk_alt_was_down) {
