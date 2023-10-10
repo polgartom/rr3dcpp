@@ -7,7 +7,7 @@
 
 void clog(const char *__fmt_msg, ...);
 
-#define internal static
+#define internal_fn static
 #define local_persist static
 #define global_variable static
 
@@ -70,7 +70,7 @@ s32 mouse_x = 0;
 s32 mouse_y = 0;
 bool mouse_left_down = false;
 
-internal void
+internal_fn void
 Win32LoadXInput(void)
 {
     HMODULE XInputLibrary = LoadLibraryA("xinput1_3.dll");
@@ -92,7 +92,7 @@ Win32LoadXInput(void)
 global_variable bool global_running;
 global_variable Win32_Offscreen_Buffer global_back_buffer;
 
-internal Win32_Window_Dimension 
+internal_fn Win32_Window_Dimension 
 Win32GetWindowDimension(HWND window)
 {
     Win32_Window_Dimension result;
@@ -105,7 +105,7 @@ Win32GetWindowDimension(HWND window)
     return result;    
 }
 
-internal void
+internal_fn void
 RenderGradient(Win32_Offscreen_Buffer *buffer, int xoffset, int yoffset)
 {
     // TODO(polgar): Let's see what the optimizer does
@@ -128,7 +128,7 @@ RenderGradient(Win32_Offscreen_Buffer *buffer, int xoffset, int yoffset)
     }
 }
 
-internal void
+internal_fn void
 Win32ResizeDIBSection(Win32_Offscreen_Buffer *buffer, int width, int height)
 {
     // TODO(polgar): Bulletproof this
@@ -163,7 +163,7 @@ Win32ResizeDIBSection(Win32_Offscreen_Buffer *buffer, int width, int height)
     buffer->pitch = width*buffer->bytes_per_pixel;
 }
 
-internal void
+internal_fn void
 Win32DisplayBuffer(Win32_Offscreen_Buffer *buffer, HDC device_context, int window_width, int window_height, int x, int y)
 {
     StretchDIBits(device_context, 
@@ -179,7 +179,7 @@ Win32DisplayBuffer(Win32_Offscreen_Buffer *buffer, HDC device_context, int windo
                   SRCCOPY);
 }
 
-internal LRESULT CALLBACK
+internal_fn LRESULT CALLBACK
 MainWindowCallback(HWND window, UINT message, WPARAM w_param, LPARAM l_param)
 {
     LRESULT result = 0;

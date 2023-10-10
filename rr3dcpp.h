@@ -8,6 +8,8 @@
 #include <string.h>
 #include <tchar.h>
 
+#include "tgaimage.h"
+
 typedef char s8;
 typedef short s16;
 typedef int s32;
@@ -48,12 +50,31 @@ void clog(const char *__fmt_msg, ...);
 #include "array.h"
 #include "window.h"
 
+struct Vector2 {
+    union {
+        struct {
+            float x, y;
+        };
+		float m[2] = {0};
+    };
+};
+
 struct Vector3 {
-    float x, y, z = 0.0f;
+    union {
+        struct {
+            float x, y, z;
+        };
+		float m[3] = {0};
+    };
 };
 
 struct Vector4 {
-    float x, y, z, w = 0.0f;
+    union {
+        struct {
+            float x, y, z, w;
+        };
+		float m[4] = {0};
+    };
 };
 
 struct Matrix3 {
@@ -71,6 +92,7 @@ struct Matrix4 {
 
 struct Face {
     int v1, v2, v3;
+    int vt1, vt2, vt3;
 };
 
 struct Model {
@@ -89,7 +111,10 @@ struct Model {
     float sx, sy, sw, sh = 0.0f;
     
     Array<Vector3> vectors;
+    Array<Vector2> uvs;
     Array<Face>    faces;
+    
+    TGAImage texture;
 };
 
 String read_entire_file(char *filename)
@@ -131,7 +156,8 @@ inline void swap(float *a, float *b)
     *b = t;
 }
 
-#define CLOG_VEC(_v) clog("{ x: %f ; y: %f ; z: %f }\n", (_v).x, (_v).y, (_v).z);
+#define CLOG_VEC2(_v) clog("{ x: %f ; y: %f }\n", (_v).x, (_v).y)
+#define CLOG_VEC3(_v) clog("{ x: %f ; y: %f ; z: %f }\n", (_v).x, (_v).y, (_v).z)
 
 #define CLOG_START()  clog("{ ")
 #define CLOG_F(_f)    clog(XSTR(_f) ": %f ; ", _f)
@@ -157,30 +183,64 @@ Model *parse_obj_file(String obj_filename)
     String rem = obj;
     
     while (obj.count-1) {
-        if (SCHAR(obj) == 'v') {
-            advance(&obj, 2);
-            if (SCHAR(obj) != '-' && !IS_DIGIT(SCHAR(obj))) continue;
-            Vector3 v = {0};
+        if (SCHAR(obj) == '#') {
+            obj = string_eat_until(obj, '\n');
+            advance(&obj, 1);
+        }
+        if (SCHAR(obj) == 's') {
+            // @Incomplete
+            obj = string_eat_until(obj, '\n');
+            advance(&obj, 1);
+        }
+        if (SCHAR(obj) == 'v') {        
+            advance(&obj, 1);
+            if (SCHAR(obj) == 't') {
+                advance(&obj, 1);
+                while (obj.count && SCHAR(obj) == ' ') advance(&obj, 1);            
+                if (SCHAR(obj) != '-' && !IS_DIGIT(SCHAR(obj))) continue;
+                
+                Vector2 uv = {0};
+
+                r = string_to_float(obj, &s, &rem);
+                assert(s);
+                obj = rem;
+                uv.x = r;
+    
+                r = string_to_float(obj, &s, &rem);
+                assert(s);
+                obj = rem;
+                uv.y = r;
+                
+                array_add(&m->uvs, uv);
+            } else {
+                advance(&obj, 1);
+                while (obj.count && SCHAR(obj) == ' ') advance(&obj, 1);            
+                if (SCHAR(obj) != '-' && !IS_DIGIT(SCHAR(obj))) continue;
             
-            r = string_to_float(obj, &s, &rem);
-            assert(s);
-            obj = rem;
-            v.x = r;
-
-            r = string_to_float(obj, &s, &rem);
-            assert(s);
-            obj = rem;
-            v.y = r;
-
-            r = string_to_float(obj, &s, &rem);
-            assert(s);
-            obj = rem;
-            v.z = r;
-
-            array_add(&m->vectors, v);
+                Vector3 v = {0};
+                
+                r = string_to_float(obj, &s, &rem);
+                assert(s);
+                obj = rem;
+                v.x = r;
+    
+                r = string_to_float(obj, &s, &rem);
+                assert(s);
+                obj = rem;
+                v.y = r;
+    
+                r = string_to_float(obj, &s, &rem);
+                assert(s);
+                obj = rem;
+                v.z = r;        
+                
+                array_add(&m->vectors, v);
+            }
         }
         else if (SCHAR(obj) == 'f') {
             advance(&obj, 2);
+            while (obj.count && SCHAR(obj) == ' ') advance(&obj, 1);
+            
             if (!(SCHAR(obj) >= '1' && SCHAR(obj) <= '9')) continue;
 
             Face f = {0};
@@ -190,6 +250,14 @@ Model *parse_obj_file(String obj_filename)
             obj = rem;
             f.v1 = ri-1;
             
+            if (SCHAR(obj) == '/') {
+                advance(&obj, 1);
+                ri = string_to_int(obj, &s, &rem);
+                assert(s);
+                obj = rem;
+                f.vt1 = ri-1;
+            }
+            
             // skip not handled stuffs, every vertex index start after ' ' (space character)
             obj = string_eat_until(obj, ' '); 
             
@@ -198,6 +266,14 @@ Model *parse_obj_file(String obj_filename)
             obj = rem;
             f.v2 = ri-1;
             
+            if (SCHAR(obj) == '/') {
+                advance(&obj, 1);
+                ri = string_to_int(obj, &s, &rem);
+                assert(s);
+                obj = rem;
+                f.vt2 = ri-1;
+            }
+            
             // skip not handled stuffs, every vertex index start after ' ' (space character)
             obj = string_eat_until(obj, ' ');
             
@@ -205,6 +281,14 @@ Model *parse_obj_file(String obj_filename)
             assert(s);
             obj = rem;
             f.v3 = ri-1;
+ 
+            if (SCHAR(obj) == '/') {
+                advance(&obj, 1);
+                ri = string_to_int(obj, &s, &rem);
+                assert(s);
+                obj = rem;
+                f.vt3 = ri-1;
+            }
             
             array_add(&m->faces, f);
         }

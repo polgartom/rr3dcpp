@@ -8,7 +8,6 @@ int WINDOW_HEIGHT = 800;
 Model *selected_model = nullptr;
 Model *hovered_model = nullptr;
 
-
 #define RGB_COLOR(r, g, b) (((r & 0xFF) << 16) | ((g & 0xFF) << 8) | ((b & 0xFF) << 0))
 
 inline void set_pixel(int x, int y, u32 color)
@@ -23,6 +22,7 @@ inline u32 get_pixel(int x, int y)
     if (x >= 0 && x < WINDOW_WIDTH && y >= 0 && y < WINDOW_HEIGHT) {
         return *((static_cast<u32 *>(global_back_buffer.memory)) + (y * WINDOW_WIDTH + x));
     }
+    
     return 0;
 }
 
@@ -101,6 +101,47 @@ inline float map_z(float z, float zmin, float zmax)
     return (((z - zmax) / (zmin - zmax)));
 }
 
+void draw_2dline(Model *m, Vector2 start, Vector2 end)
+{
+    float x1 = start.x;
+    float y1 = start.y;
+    float x2 = end.x;
+    float y2 = end.y;
+
+    bool steep = false;
+    if (abs(x1 - x2) < abs(y1 - y2)) {
+        steep = true;
+        swap(&x1, &y1);
+        swap(&x2, &y2);
+    }
+
+    if (x1 > x2) {
+        swap(&x1, &x2);
+        swap(&y1, &y2);
+    }
+
+    float xr1 = x1 * m->texture.get_width();
+    float xr2 = x2 * m->texture.get_width();
+    float delta = xr2 - xr1;
+
+    int left_offset = (WINDOW_WIDTH/2) - (m->texture.get_width()/2);
+    int top_offset = 200;
+    
+    for (float x = xr1; x < xr2; x += 1.0f) {
+        float t = (x - xr1) / delta;
+        float y = y1*(1.0f-t) + (y2*t);
+        y = y * m->texture.get_height();
+
+        u32 color = RGB_COLOR(50, 50, 50);
+
+        if (steep) {
+            set_pixel(y+left_offset, x+top_offset, color);
+        } else {
+            set_pixel(x+left_offset, y+top_offset, color);
+        }
+    }
+}
+
 void draw_line(float x1, float y1, float x2, float y2, float z1, float z2, u32 color = RGB_COLOR(255, 255, 255))
 {
     bool steep = false;
@@ -126,10 +167,8 @@ void draw_line(float x1, float y1, float x2, float y2, float z1, float z2, u32 c
 
         if (steep) {
             set_pixel(y, x, color);
-            float cz = get_zbuf(y, x);
         } else {
             set_pixel(x, y, color);
-            float cz = get_zbuf(x, y);
         }
     }
 }
@@ -234,6 +273,7 @@ inline void draw_mesh(Model *m)
     float y_max = 0.0f;
 
     for (Face f : m->faces) {
+        if (f.v1 >= m->vectors.count || f.v2 >= m->vectors.count || f.v3 >= m->vectors.count) return;
         Vector3 v1 = m->vectors[f.v1];
         Vector3 v2 = m->vectors[f.v2];
         Vector3 v3 = m->vectors[f.v3];
@@ -256,15 +296,15 @@ inline void draw_mesh(Model *m)
         }
         
         // Illumination
-        Vector3 light_dir = {0.0f, 0.0f, -1.0f};
-        float l = sqrtf(pow(light_dir.x, 2) + pow(light_dir.y, 2) + pow(light_dir.z, 2));
-        light_dir.x /= l;
-        light_dir.y /= l;
-        light_dir.z /= l;
+        // Vector3 light_dir = {0.0f, 0.0f, -1.0f};
+        // float l = sqrtf(pow(light_dir.x, 2) + pow(light_dir.y, 2) + pow(light_dir.z, 2));
+        // light_dir.x /= l;
+        // light_dir.y /= l;
+        // light_dir.z /= l;
         
-        float dp = normal.x * (light_dir.x) +
-            normal.y * (light_dir.y) +
-            normal.z * (light_dir.z);
+        // float dp = normal.x * (light_dir.x) +
+        //     normal.y * (light_dir.y) +
+        //     normal.z * (light_dir.z);
                 
         // u8 r = m->r * (normal.z/normal.y);
         u8 r = m->r * normal.x;
@@ -281,6 +321,7 @@ inline void draw_mesh(Model *m)
         // @Todo: put the scaling here
         // draw_triangle(v1, v2, v3);
         
+#if 1
         v1 = to_scr_coords(v1);
         v2 = to_scr_coords(v2);
         v3 = to_scr_coords(v3);
@@ -297,24 +338,47 @@ inline void draw_mesh(Model *m)
         if (ymax > y_max) y_max = ymax;
         if (ymin < y_min || y_min < 0.0f) y_min = ymin; 
         
+        Vector2 vt1_ = m->uvs[f.vt1];
+        Vector2 vt2_ = m->uvs[f.vt2];
+        Vector2 vt3_ = m->uvs[f.vt3];
+        Vector3 vt1 = {vt1_.x, vt1_.y, 1};
+        Vector3 vt2 = {vt2_.x, vt2_.y, 1};
+        Vector3 vt3 = {vt3_.x, vt3_.y, 1};
+        
+        float uv_xmax = MAX3(vt1.x, vt2.x, vt3.x);
+        float uv_xmin = MIN3(vt1.x, vt2.x, vt3.x);
+        float uv_ymax = MAX3(vt1.y, vt2.y, vt3.y);
+        float uv_ymin = MIN3(vt1.y, vt2.y, vt3.y);
+        
         for (float x = xmin; x <= xmax; x++) {
             for (float y = ymin; y <= ymax; y++) {
                 int u1, u2, det = 0;
-                if (olivec_barycentric(v1.x, v1.y, v2.x, v2.y, v3.x, v3.y, x, y, &u1, &u2, &det)) {
+                if (olivec_barycentric(v1.x, v1.y, v2.x, v2.y, v3.x, v3.y, x, y, &u1, &u2, &det)) {               
                     int u3 = det - u1 - u2;
                     float z = 1/v1.z*u1/det + 1/v2.z*u2/det + 1/v3.z*u3/det;
                     if (z > get_zbuf(x, y)) {
                         // u8 c = 255 * (z);
                         // u32 color = RGB_COLOR(c, c, c);
+                        float uv_x = (uv_xmax * (x / xmax));
+                        float uv_y = (uv_ymax * (y / ymax));
+                        if (olivec_barycentric(vt1.x, vt1.y, vt2.x, vt2.y, vt3.x, vt3.y, uv_x, uv_y, &u1, &u2, &det)) {
+                            color = m->texture.get(uv_x*m->texture.get_width(), uv_y*m->texture.get_height()).val;
+                            // u8 r = ((color>>16)&0xFF) * z;
+                            // u8 g = ((color>>8)&0xFF) * z;
+                            // u8 b = ((color>>0)&0xFF) * z;
+                            // color = (r<<16) | (g<<8) | (b<<0);
+                        }
+                        
                         set_pixel(x, y, color);
                         set_zbuf(x, y, z);
                     }
                 }
             }
         }
-        
+#endif
+   
     }
-
+    
     m->sx = x_min;
     m->sw = x_max - x_min;
     m->sy = y_min;
@@ -324,6 +388,7 @@ inline void draw_mesh(Model *m)
         && abs(mouse_y-WINDOW_HEIGHT) >= m->sy && abs(mouse_y-WINDOW_HEIGHT) <= m->sy + m->sh) {    
         hovered_model = m;
     }
+    
 }
 
 int CALLBACK
@@ -369,72 +434,80 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
 
             Array<Model *> models;
             
-            {
-                Model *m = parse_obj_file(".\\obj\\teddy.obj");
-                m->name = "teddy";
-                m->ry = 3.0f;
-                m->x = 1.8f;
-                m->z = 2.5f;
-                scale(m, 0.035f);
-                m->r = 200; m->g = 100; m->b = 10;
+            // {
+            //     Model *m = parse_obj_file(".\\obj\\teddy.obj");
+            //     m->name = "teddy";
+            //     m->ry = 3.0f;
+            //     m->x = 1.8f;
+            //     m->z = 2.5f;
+            //     scale(m, 0.035f);
+            //     m->r = 200; m->g = 100; m->b = 10;
                 
-                array_add(&models, m);
-            }
+            //     array_add(&models, m);
+            // }
             
-            {
-                Model *m = parse_obj_file(".\\obj\\teddy.obj");
-                m->name = "teddy2";
-                m->ry = 3.0f;
-                m->x = 1.5f;
-                m->y = -2.0f;
-                m->z = 2.0f;
-                scale(m, 0.035f);
-                m->r = 0; m->g = 100; m->b = 50;
+            // {
+            //     Model *m = parse_obj_file(".\\obj\\teddy.obj");
+            //     m->name = "teddy2";
+            //     m->ry = 4.0f;
+            //     m->x = 0.2f;
+            //     m->y = -0.12f;
+            //     m->z = 0.3f;
+            //     scale(m, 0.010f);
+            //     m->r = 50; m->g = 200; m->b = 80;
                 
-                array_add(&models, m);
-            }
+            //     array_add(&models, m);
+            // }
             
-            {
-                Model *m = parse_obj_file(".\\obj\\teddy.obj");
-                m->name = "teddy2";
-                m->ry = 4.0f;
-                m->x = 0.2f;
-                m->y = -0.12f;
-                m->z = 0.3f;
-                scale(m, 0.010f);
-                m->r = 50; m->g = 200; m->b = 80;
+            // {
+            //     Model *m = parse_obj_file((".\\obj\\cow.obj"));
+            //     m->name = "cow";
+            //     m->x = -0.3f;
+            //     m->z = 1.3f;
+            //     scale(m, 0.12f);
+            //     m->r = 50; m->g = 80; m->b = 80;
                 
-                array_add(&models, m);
-            }
-            
+            //     array_add(&models, m);
+            // }
+
+            // {
+            //     Model *m = parse_obj_file((".\\obj\\teapot.obj"));
+            //     m->name = "teapot";
+            //     m->x = 0.0f;
+            //     m->y = -1.0f;
+            //     m->z = 0.5f;
+            //     scale(m, 0.27f);
+            //     m->r = 30; m->g = 10; m->b = 255;
+                
+            //     array_add(&models, m);
+            // }
+
             {
-                Model *m = parse_obj_file((".\\obj\\cow.obj"));
-                m->name = "cow";
-                m->x = -0.3f;
-                m->z = 1.3f;
-                scale(m, 0.12f);
-                m->r = 50; m->g = 80; m->b = 80;
+                Model *m = parse_obj_file((".\\obj\\car_1924.obj"));
+                m->name = "car_1924";
+                m->x = 1.25f;
+                m->y = -5.5f;
+                m->z = 5.0;
+                scale(m, 0.7f);
+                m->r = 30; m->g = 10; m->b = 255;
+                m->rx = -0.2f;
+                // m->ry = -30.0f;
                 
                 array_add(&models, m);
             }
 
-            {
-                Model *m = parse_obj_file((".\\obj\\teapot.obj"));
-                m->name = "teapot";
-                m->x = 0.0f;
-                m->y = -1.0f;
-                m->z = 0.5f;
-                scale(m, 0.27f);
-                m->r = 30; m->g = 10; m->b = 255;
-                
-                array_add(&models, m);
-            }
+            TGAImage uvtex(1024, 1024, TGAImage::RGB);
+            assert(uvtex.read_tga_file(".//uv_sample_texture.tga"));
+            uvtex.scale(1024/2, 1024/2);
+            // uvtex.flip_horizontally();
+            uvtex.flip_vertically();
             
             For_Index (models) {
                 Model *m = models[it_index];
+                m->texture = uvtex;
                 
-                float xmax, ymax = 0.0f;
-                float xmin = 0.0f; float ymin = 0.0f; float zmax = 0.0f; float zmin = 0.0f;
+                float xmax = 0.0f; float ymax = 0.0f; float zmax = 0.0f;
+                float xmin = 0.0f; float ymin = 0.0f; float zmin = 0.0f;
     
                 For (m->vectors) {
                     if (it->z > zmax) zmax = it->z;
@@ -453,6 +526,13 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                 m->zh = zmax - zmin;
                 CLOG1(CLOG_F(m->zh));
             }
+
+            CLOG_START();
+                clog("UV Sample: ");
+                CLOG_D(uvtex.get_width());
+                CLOG_D(uvtex.get_height());
+                CLOG_D(uvtex.get_bytespp());
+            CLOG_END();
 
             u64 cycle = 0;
             selected_model = nullptr;
@@ -481,44 +561,49 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                 ZERO_MEMORY(global_back_buffer.memory, global_back_buffer.bitmap_memory_size);
                 ZERO_MEMORY(global_back_buffer.zbuffer, global_back_buffer.bitmap_memory_size);
 
-                // if (vk_key_pressed == VK_UP) {
-                //     if (vk_alt_was_down) {
-                //         transform_z(m, 0.01);
-                //     } else {
-                //         transform_y(m, 0.01);
-                //     }
-                // } else if (vk_key_pressed == VK_DOWN) {
-                //     if (vk_alt_was_down) {
-                //         transform_z(m, -0.01);
-                //     } else {
-                //         transform_y(m, -0.01);
-                //     }
-                // } else if (vk_key_pressed == VK_LEFT) {
-                //     if (vk_alt_was_down) {
-                //         rotate_y(m, -0.01);
-                //     } else {
-                //         transform_x(m, -0.01);
-                //     }
-                // } else if (vk_key_pressed == VK_RIGHT) {
-                //     if (vk_alt_was_down) {
-                //         rotate_y(m, 0.01);
-                //     } else {
-                //         transform_x(m, 0.01);
-                //     }
-                // }
-                
                 // clog("m: x: %d ; y: %d\n", mouse_x, mouse_y);
                 
+                int w = uvtex.get_width();
+                int h = uvtex.get_height();
+                int x1 = (WINDOW_WIDTH/2) - (w/2);
+                int y1 = 200;
+                // int x1 = 0;
+                // int y1 = 0;
+                for (int x = 0; x < w; x++) {
+                    for (int y = 0; y < h; y++) {
+                        u32 p = uvtex.get(x, y).val;
+                        set_pixel(x+x1, y+y1, p);
+                        if (x == 0 || x == w-1) {
+                            set_pixel(x+x1, y+y1, RGB_COLOR(255, 0, 80));
+                        }
+                    }
+                }
+
                 For_Index (models) {
                     Model *m = models[it_index];
-                    if (m->name == "teddy") {
-                        rotate_y(m, 0.01);
-                        rotate_x(m, 0.3);
-                    } else if (m->name == "cow") {
-                        rotate_y(m, -0.05);
-                    } else {
-                        rotate_y(m, -0.01);
+                    
+                    for (Face f : m->faces) {
+                        Vector2 vt1 = m->uvs[f.vt1];
+                        Vector2 vt2 = m->uvs[f.vt2];
+                        Vector2 vt3 = m->uvs[f.vt3];
+                        
+                        // CLOG_VEC2(vt1);
+                        // CLOG_VEC2(vt2);
+                        // CLOG_VEC2(vt3);
+                        
+                        draw_2dline(m, vt1, vt2);
+                        draw_2dline(m, vt2, vt3);
+                        draw_2dline(m, vt3, vt1);
                     }
+                    
+                    // if (m->name == "teddy") {
+                    //     rotate_y(m, 0.01);
+                    //     rotate_x(m, 0.3);
+                    // } else if (m->name == "cow") {
+                    //     rotate_y(m, -0.05);
+                    // } else if (!(m->name == "building")) {
+                    //     rotate_y(m, -0.01);
+                    // }
                     
                     draw_mesh(m);
                 }
@@ -539,6 +624,32 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                     Vector3 mouse = { scr_rev_x(mouse_x), scr_rev_y(abs(mouse_y-WINDOW_HEIGHT)), m->z };
                     m->x = mouse.x * m->z;
                     m->y = mouse.y * m->z;
+
+                    if (vk_key_pressed == VK_UP) {
+                        if (vk_alt_was_down) {
+                            transform_z(m, 0.01);
+                        } else {
+                            transform_y(m, 0.01);
+                        }
+                    } else if (vk_key_pressed == VK_DOWN) {
+                        if (vk_alt_was_down) {
+                            transform_z(m, -0.01);
+                        } else {
+                            transform_y(m, -0.01);
+                        }
+                    } else if (vk_key_pressed == VK_LEFT) {
+                        if (vk_alt_was_down) {
+                            rotate_y(m, -0.01);
+                        } else {
+                            transform_x(m, -0.01);
+                        }
+                    } else if (vk_key_pressed == VK_RIGHT) {
+                        if (vk_alt_was_down) {
+                            rotate_y(m, 0.01);
+                        } else {
+                            transform_x(m, 0.01);
+                        }
+                    }
                     
                     // CLOG_START();
                     //     CLOG_S(m->name);
