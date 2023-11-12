@@ -13,16 +13,23 @@
 
 #define SFMT "%.*s"
 #define SARG(__s) (int) (__s).count, (__s).data 
+#define SARGC(__s, __c) (int)__c, (__s).data 
 // Usage: printf("This is an example: " SFMT "\n", SARG(value));
 
 #define SCHAR(s) (*s.data)
 
+constexpr const unsigned int string_byte_padding = 8;
+
 struct String {
-    char *data;
-    char *alloc_location; // If allocated on the heap
+    char *data = nullptr;
+    char *alloc_location = nullptr; // If allocated on the heap
     int count;
+    int refcount;
 
     String () {}
+    
+    ~String() {
+    }
     
     String (const char *s)
     {
@@ -50,9 +57,13 @@ inline String string_create(const char *data)
 
 inline String string_make_alloc(unsigned int size)
 {
+    auto padded_size = (string_byte_padding - (size % string_byte_padding)) + size;
+    assert(!(padded_size % 8));
+    clog("[string_make_alloc]: %ld\n", padded_size);
+
     String s;
-    s.alloc_location = (char *)malloc(size+1);
-    s.data           = (char *)memset(s.alloc_location, 0, (size+1));
+    s.alloc_location = (char *)malloc(padded_size);
+    s.data           = (char *)memset(s.alloc_location, 0, (padded_size));
     s.count          = size;
     
     return s;
@@ -95,10 +106,21 @@ inline char *string_to_cstr(String s)
 inline bool string_equal(String a, String b)
 {
     if (a.count != b.count) return false;
-    int max_count = a.count > b.count ? a.count : b.count;
-    for (int i = 0; i < max_count; i++) {
+#if 1
+    for (int i = 0; i < a.count; i++) {
         if (a.data[i] != b.data[i]) return false;
     }
+#else 
+    int i = 0;
+    int target = a.count / string_byte_padding;
+    #define xx reinterpret_cast<unsigned long*>
+    do {
+        if (*(xx(a.data)+i) != *(xx(b.data)+i)) {
+            return false;
+        }
+    } while (i++ != target);
+    #undef xx
+#endif
     
     return true;
 }
@@ -127,7 +149,7 @@ inline String string_trim_white(String s)
 inline void string_trim_white(String *s)
 {
     String r = string_trim_white(*s);
-    STRUCT_COPY(*s, r);
+    STRUCT_COPY(*s, r); // @Todo: remove this crap
 }
 
 int string_to_int(String s, bool *success, String *remained)

@@ -63,6 +63,12 @@ global_variable x_input_set_state *XInputSetState_ = XInputSetStateStub;
 #define DIRECT_SOUND_CREATE(name) HRESULT WINAPI name(LPCGUID pcGuidDevice, LPDIRECTSOUND *ppDS, LPUNKNOWN pUnkOuter)
 typedef DIRECT_SOUND_CREATE(direct_sound_create);
 
+#define MOUSE_DOWN  0b0001
+#define MOUSE_UP    0b0010
+#define MOUSE_CLICK 0b0011
+
+u32 mouse_events = 0;
+
 // kacsa
 uint32 vk_key_pressed = 0;
 bool vk_alt_was_down = false;
@@ -184,8 +190,6 @@ MainWindowCallback(HWND window, UINT message, WPARAM w_param, LPARAM l_param)
 {
     LRESULT result = 0;
 
-    mouse_left_down = false;
-
     switch (message) {
         case WM_SIZE: {
             break;
@@ -206,7 +210,11 @@ MainWindowCallback(HWND window, UINT message, WPARAM w_param, LPARAM l_param)
         case WM_LBUTTONDOWN: {
             mouse_x = GET_X_LPARAM(l_param); 
             mouse_y = GET_Y_LPARAM(l_param); 
-            mouse_left_down = w_param & MK_LBUTTON;
+            mouse_events |= (w_param & MK_LBUTTON) ? MOUSE_DOWN : 0;
+            break;
+        }
+        case WM_LBUTTONUP: {
+            mouse_events |= MOUSE_UP;
             break;
         }
         case WM_SYSKEYDOWN:

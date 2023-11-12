@@ -49,33 +49,7 @@ void clog(const char *__fmt_msg, ...);
 #include "new_string.h"
 #include "array.h"
 #include "window.h"
-
-struct Vector2 {
-    union {
-        struct {
-            float x, y;
-        };
-		float m[2] = {0};
-    };
-};
-
-struct Vector3 {
-    union {
-        struct {
-            float x, y, z;
-        };
-		float m[3] = {0};
-    };
-};
-
-struct Vector4 {
-    union {
-        struct {
-            float x, y, z, w;
-        };
-		float m[4] = {0};
-    };
-};
+#include "vector.h"
 
 struct Matrix3 {
     float _00, _01, _02,
@@ -93,6 +67,7 @@ struct Matrix4 {
 struct Face {
     int v1, v2, v3;
     int vt1, vt2, vt3;
+    int vn1, vn2, vn3;
 };
 
 struct Model {
@@ -110,9 +85,10 @@ struct Model {
     
     float sx, sy, sw, sh = 0.0f;
     
-    Array<Vector3> vectors;
-    Array<Vector2> uvs;
-    Array<Face>    faces;
+    Array<Vector3>  vectors;
+    Array<Vector2>  uvs;
+    Array<Vector3>  normals;
+    Array<Face>     faces;
     
     TGAImage texture;
 };
@@ -138,7 +114,7 @@ String read_entire_file(char *filename)
 void clog(const char *__fmt_msg, ...)
 {
     va_list args;
-    char buf[4096] = {0};
+    static char buf[4096] = {0};
     
     va_start(args, __fmt_msg);
     _vstprintf_s(buf, __fmt_msg, args);
@@ -181,6 +157,8 @@ Model *parse_obj_file(String obj_filename)
     int ri = 0;
     bool s = true;
     String rem = obj;
+
+    int vc = 0;
     
     while (obj.count-1) {
         if (SCHAR(obj) == '#') {
@@ -192,9 +170,13 @@ Model *parse_obj_file(String obj_filename)
             obj = string_eat_until(obj, '\n');
             advance(&obj, 1);
         }
+        
         if (SCHAR(obj) == 'v') {        
             advance(&obj, 1);
+            
             if (SCHAR(obj) == 't') {
+                // texture coordinates - uv
+            
                 advance(&obj, 1);
                 while (obj.count && SCHAR(obj) == ' ') advance(&obj, 1);            
                 if (SCHAR(obj) != '-' && !IS_DIGIT(SCHAR(obj))) continue;
@@ -212,9 +194,37 @@ Model *parse_obj_file(String obj_filename)
                 uv.y = r;
                 
                 array_add(&m->uvs, uv);
-            } else {
+                
+            } else if (SCHAR(obj) == 'n') {
+                // normals
                 advance(&obj, 1);
                 while (obj.count && SCHAR(obj) == ' ') advance(&obj, 1);            
+                if (SCHAR(obj) != '-' && !IS_DIGIT(SCHAR(obj))) continue;
+                
+                Vector3 normal = {0};
+
+                r = string_to_float(obj, &s, &rem);
+                assert(s);
+                obj = rem;
+                normal.x = r;
+    
+                r = string_to_float(obj, &s, &rem);
+                assert(s);
+                obj = rem;
+                normal.y = r;
+                
+                r = string_to_float(obj, &s, &rem);
+                assert(s);
+                obj = rem;
+                normal.z = r;
+                
+                array_add(&m->normals, normal);
+                
+            } else if (SCHAR(obj) == ' ') {
+                // vector coordinates
+            
+                advance(&obj, 1);
+                while (obj.count && SCHAR(obj) == ' ') advance(&obj, 1);
                 if (SCHAR(obj) != '-' && !IS_DIGIT(SCHAR(obj))) continue;
             
                 Vector3 v = {0};
@@ -235,9 +245,13 @@ Model *parse_obj_file(String obj_filename)
                 v.z = r;        
                 
                 array_add(&m->vectors, v);
+            } else {
+                obj = string_eat_until(obj, '\n');
             }
         }
         else if (SCHAR(obj) == 'f') {
+            // faces
+        
             advance(&obj, 2);
             while (obj.count && SCHAR(obj) == ' ') advance(&obj, 1);
             
@@ -255,7 +269,15 @@ Model *parse_obj_file(String obj_filename)
                 ri = string_to_int(obj, &s, &rem);
                 assert(s);
                 obj = rem;
-                f.vt1 = ri-1;
+                f.vt1 = ri-1;                
+            }
+            
+            if (SCHAR(obj) == '/') {
+                advance(&obj, 1);
+                ri = string_to_int(obj, &s, &rem);
+                assert(s);
+                obj = rem;
+                f.vn1 = ri-1;                
             }
             
             // skip not handled stuffs, every vertex index start after ' ' (space character)
@@ -274,6 +296,14 @@ Model *parse_obj_file(String obj_filename)
                 f.vt2 = ri-1;
             }
             
+            if (SCHAR(obj) == '/') {
+                advance(&obj, 1);
+                ri = string_to_int(obj, &s, &rem);
+                assert(s);
+                obj = rem;
+                f.vn2 = ri-1;                
+            }
+            
             // skip not handled stuffs, every vertex index start after ' ' (space character)
             obj = string_eat_until(obj, ' ');
             
@@ -290,6 +320,14 @@ Model *parse_obj_file(String obj_filename)
                 f.vt3 = ri-1;
             }
             
+            if (SCHAR(obj) == '/') {
+                advance(&obj, 1);
+                ri = string_to_int(obj, &s, &rem);
+                assert(s);
+                obj = rem;
+                f.vn3 = ri-1;                
+            }
+            
             array_add(&m->faces, f);
         }
         
@@ -299,14 +337,9 @@ Model *parse_obj_file(String obj_filename)
     string_free(&obj);
 
     clog("obj parsed: " SFMT "\n", SARG(obj_filename));
-    clog("vertices: %d ; faces: %d\n", m->vectors.count, m->faces.count);
+    clog("vertices: %d ; faces: %d ; uvs: %d\n", m->vectors.count, m->faces.count, m->uvs.count);
     
     return m;
-}
-
-inline Vector3 make_vector3(float x, float y, float z)
-{
-    return {x, y, z};
 }
 
 #endif 
