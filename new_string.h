@@ -56,10 +56,10 @@ inline String string_create(const char *data)
 }
 
 inline String string_make_alloc(unsigned int size)
-{
+{   
     auto padded_size = (string_byte_padding - (size % string_byte_padding)) + size;
-    assert(!(padded_size % 8));
-    clog("[string_make_alloc]: %ld\n", padded_size);
+    assert(!(padded_size % string_byte_padding));
+    // clog("[string_make_alloc]: %ld\n", padded_size);
 
     String s;
     s.alloc_location = (char *)malloc(padded_size);
@@ -106,22 +106,24 @@ inline char *string_to_cstr(String s)
 inline bool string_equal(String a, String b)
 {
     if (a.count != b.count) return false;
-#if 1
+
+#if 0
+
     for (int i = 0; i < a.count; i++) {
         if (a.data[i] != b.data[i]) return false;
     }
+    
 #else 
+
     int i = 0;
     int target = a.count / string_byte_padding;
-    #define xx reinterpret_cast<unsigned long*>
     do {
-        if (*(xx(a.data)+i) != *(xx(b.data)+i)) {
+        if (*(reinterpret_cast<unsigned long*>(a.data)+i) != *(reinterpret_cast<unsigned long*>(b.data)+i)) {
             return false;
         }
     } while (i++ != target);
-    #undef xx
-#endif
     
+#endif
     return true;
 }
 

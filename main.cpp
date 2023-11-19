@@ -329,15 +329,15 @@ inline void draw_mesh(Model *m)
         if (xmin < 0)             ymin = 0;
         if (xmax > WINDOW_HEIGHT) ymax = WINDOW_HEIGHT;
 
-        // auto UV_A = m->uvs[f.vt1];
-        // auto UV_B = m->uvs[f.vt2];
-        // auto UV_C = m->uvs[f.vt3];
+        auto UV_A = m->uvs[f.vt1];
+        auto UV_B = m->uvs[f.vt2];
+        auto UV_C = m->uvs[f.vt3];
 
-        // Matrix3 varying_uv = {
-        //     UV_A.x, UV_A.y, 0,
-        //     UV_B.x, UV_B.y, 0,
-        //     UV_C.x, UV_C.y, 0,
-        // };
+        Matrix3 varying_uv = {
+            UV_A.x, UV_B.y, UV_C.x,
+            UV_A.y, UV_B.x, UV_C.y,
+            0, 0, 0,
+        };
         
         for (int x = xmin; x <= xmax; x++) {
             for (int y = ymin; y <= ymax; y++) {
@@ -347,6 +347,8 @@ inline void draw_mesh(Model *m)
                     float z = 1/v1.z*u1/det + 1/v2.z*u2/det + 1/v3.z*u3/det;
                                         
                     Vector3 bar = {u1/det, u2/det, u3/det};
+                    Vector3 uv = multiply(bar, varying_uv);
+                    
                     float intensity = dot_product(varying_intensity, bar);
                     if (intensity>.85) intensity = 1;
                     else if (intensity>.60) intensity = .80;
@@ -606,7 +608,6 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                 For_Index (models) {
                     Model *m = models[it_index];
                     m->ry = (((float)mouse_x) / 500)*-1 + 10.0f;
-                    
                     draw_mesh(m);
                 }
                 
