@@ -1,7 +1,6 @@
-#ifndef _H_MY_MATH_
-#define _H_MY_MATH 1
+#pragma once
 
-inline Vector3 multiply(Vector3 v, Matrix3 m)
+inline Vector3 func multiply(Vector3 v, Matrix3 m)
 {
     Vector3 r;
     r.x = (v.x * m._00) + (v.y * m._01) + (v.z * m._02);
@@ -11,7 +10,7 @@ inline Vector3 multiply(Vector3 v, Matrix3 m)
     return r;
 }
 
-inline Vector3 multiply(Vector3 v, Matrix4 m)
+inline Vector3 func multiply(Vector3 v, Matrix4 m)
 {
     Vector3 r;
     r.x = (v.x * m._00) + (v.y * m._10) + (v.z * m._20) + (m._30);
@@ -28,7 +27,7 @@ inline Vector3 multiply(Vector3 v, Matrix4 m)
     return r;
 }
 
-inline Vector4 multiply(Vector4 v, Matrix4 m)
+inline Vector4 func multiply(Vector4 v, Matrix4 m)
 {
     Vector4 r;
     r.x = (v.x * m._00) + (v.y * m._01) + (v.z * m._02) + (v.w * m._03);
@@ -39,27 +38,37 @@ inline Vector4 multiply(Vector4 v, Matrix4 m)
     return r;
 }
 
-inline void scale(Vector3 *v, float scale)
+inline Vector3 func substract(Vector3 a, Vector3 b)
+{
+    Vector3 r = {
+        a.x - b.x,
+        a.y - b.y,
+        a.z - b.z
+    };
+    return r;
+}
+
+inline func void func scale(Vector3 *v, float scale)
 {
     v->x *= scale;
     v->y *= scale;
     v->z *= scale;
 }
 
-inline void scale(Model *m, float scale)
-{
-    m->scale = scale;
-    for (int i = 0; i < m->vectors.count; i++) {
-        Vector3 *v = &m->vectors[i];
-        v->x *= scale;
-        v->y *= scale;
-        v->z *= scale;
-        // This is a fucking bug or what??????????? -> ..\main.cpp(127): error C2064: term does not evaluate to a function taking 2 arguments
-        // scale(v, scale);
-    }
-}
+// inline void scale(Model *m, float scale)
+// {
+//     m->scale = scale;
+//     for (int i = 0; i < m->vectors.count; i++) {
+//         Vector3 *v = &m->vectors[i];
+//         v->x *= scale;
+//         v->y *= scale;
+//         v->z *= scale;
+//         // This is a fucking bug or what??????????? -> ..\main.cpp(127): error C2064: term does not evaluate to a function taking 2 arguments
+//         // scale(v, scale);
+//     }
+// }
 
-inline void rotate_x(Vector3 *v, float theta)
+inline void func rotate_x(Vector3 *v, float theta)
 {
     Matrix4 m = {0};
     ZERO_MEMORY(&m, sizeof(m));
@@ -78,7 +87,7 @@ inline void rotate_x(Vector3 *v, float theta)
     v->z = r.z;
 }
 
-inline void rotate_y(Vector3 *v, float theta)
+inline void func rotate_y(Vector3 *v, float theta)
 {
     Matrix3 m = {
         cosf(theta), 0, sinf(theta),
@@ -93,7 +102,7 @@ inline void rotate_y(Vector3 *v, float theta)
     v->z = r.z;
 }
 
-inline void rotate_z(Vector3 *v, float theta)
+inline void func rotate_z(Vector3 *v, float theta)
 {
     Matrix4 m = {0};
     ZERO_MEMORY(&m, sizeof(m));
@@ -112,7 +121,7 @@ inline void rotate_z(Vector3 *v, float theta)
     v->z = r.z;
 }
 
-inline void rotate_x(Model *m, float val)
+inline void func rotate_x(Model *m, float val)
 {
     m->rx += val;
 
@@ -121,7 +130,7 @@ inline void rotate_x(Model *m, float val)
     // }
 }
 
-inline void rotate_y(Model *m, float val)
+inline void func rotate_y(Model *m, float val)
 {
     m->ry += val;
 
@@ -130,7 +139,7 @@ inline void rotate_y(Model *m, float val)
     // }
 }
 
-inline void rotate_z(Model *m, float val)
+inline void func rotate_z(Model *m, float val)
 {
     m->rz += val;
 
@@ -139,4 +148,21 @@ inline void rotate_z(Model *m, float val)
     // }
 }
 
-#endif
+inline void func rotate(Vector3 *v, float x, float y, float z)
+{
+    rotate_x(v, x);
+    rotate_y(v, y);
+    rotate_z(v, z);
+}
+
+inline void func rotate(Vector3 *v, Vector3 rot)
+{
+    rotate_x(v, rot.x);
+    rotate_y(v, rot.y);
+    rotate_z(v, rot.z);
+}
+
+inline void func rotate(Vector3 *v, Model *m)
+{
+    rotate(v, m->rx, m->ry, m->rz);
+}

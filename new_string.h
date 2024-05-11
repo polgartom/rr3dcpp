@@ -59,7 +59,7 @@ inline String string_make_alloc(unsigned int size)
 {   
     auto padded_size = (string_byte_padding - (size % string_byte_padding)) + size;
     assert(!(padded_size % string_byte_padding));
-    // clog("[string_make_alloc]: %ld\n", padded_size);
+    // clog("[string_make_alloc]: %ld ; size: %ld\n", padded_size, size);
 
     String s;
     s.alloc_location = (char *)malloc(padded_size);
@@ -80,6 +80,9 @@ inline void string_free(String *s)
 
 inline String advance(String s, unsigned int step = 1)
 {
+    // if (!(s.count >= step && step >= 0)) {
+    //     assert(s.count >= step && step >= 0);    
+    // }
     assert(s.count >= step && step >= 0);
 
     s.data   = s.data + step; 
@@ -192,7 +195,7 @@ float string_to_float(String s, bool *success, String *remained)
 
 inline String string_eat_until(String s, const char c)
 {
-    while (*s.data && *s.data != c) {
+    while (s.count != 0 && *s.data && *s.data != c) {
         advance(&s);
     }
     
@@ -210,4 +213,3 @@ inline bool operator==(String &lhs, char *rhs)
 }
 
 #endif
-

@@ -46,10 +46,43 @@ void clog(const char *__fmt_msg, ...);
 #define XSTR(x) #x
 #define STRUCT_COPY(dest, src) (memcpy(&dest, &src, sizeof(dest)))
 
+#define func 
+
+#define M_PI 3.14159265358979323846
+
 #include "new_string.h"
 #include "array.h"
 #include "window.h"
 #include "vector.h"
+#include <ctime>
+#include <cstdlib>
+#include <iostream>
+
+#include <string>
+
+char *func get_project_dir_cstr() 
+{
+    static char buffer[MAX_PATH] = {0};
+    GetModuleFileName( NULL, buffer, MAX_PATH );
+    auto b = std::string(buffer);
+    auto pos = b.find_last_of( "\\/" );
+    assert(pos != std::string::npos);
+    buffer[pos] = '\0';
+    return buffer;
+}
+
+template <typename T>
+T func clamp(T min, T max, T value)
+{
+    if      (value < min) return min;
+    else if (value > max) return max;
+    return value;
+}
+
+float func lerp(float a, float b, float f)
+{
+    return a * (1.0 - f) + (b * f);
+}
 
 struct Matrix3 {
     float _00, _01, _02,
@@ -91,9 +124,20 @@ struct Model {
     Array<Face>     faces;
     
     TGAImage texture;
+    
+    // DEBUG
+    bool show_normals = false;
+    int  normals_intensity = 60; // show every 60th normal
 };
 
-String read_entire_file(char *filename)
+struct Camera {
+    Vector3 pos = {0};
+    Vector3 rot = {0};    // rotation
+    
+    float   zoom = 1.0f;
+};
+
+String func read_entire_file(char *filename)
 {
     FILE *fp = fopen(filename, "rb");
     ASSERT(fp, "Failed to open file! Filename: %s\n", filename);
@@ -125,7 +169,7 @@ void clog(const char *__fmt_msg, ...)
     WriteConsole(GetStdHandle(STD_OUTPUT_HANDLE), buf, strlen(buf), NULL, NULL);
 }
 
-inline void swap(float *a, float *b)
+inline void func swap(float *a, float *b)
 {
     float t = *a;
     *a = *b;
@@ -142,14 +186,16 @@ inline void swap(float *a, float *b)
 #define CLOG_CS(_cs)  clog(XSTR(_cs) ": %s ; ", _cs)
 // new_string.h
 #define CLOG_S(_s)    clog(XSTR(_s) ": " SFMT " ; ", SARG(_s))
-#define CLOG_END()    clog("}\n")
+#define CLOG_END()    clog(" }\n")
 #define CLOG1(_CLOG)  { CLOG_START(); _CLOG; CLOG_END(); }
 
 #include "math.h"
 
-Model *parse_obj_file(String obj_filename) 
+Model func *parse_obj_file(String obj_filename) 
 {
-    String obj = read_entire_file(obj_filename.data);    
+    char *project_dir = get_project_dir_cstr();
+    
+    String obj = read_entire_file(obj_filename.data);
     
     Model *m = new Model();
 
@@ -331,6 +377,9 @@ Model *parse_obj_file(String obj_filename)
             array_add(&m->faces, f);
         }
         
+        if ((obj.count-1) == 0) {
+            break;
+        }
         advance(&obj);
     }
 

@@ -1,3 +1,5 @@
+#pragma once
+
 struct Vector2 {
     union {
         struct {
@@ -45,10 +47,23 @@ inline Vector3 cross_product(Vector3 a, Vector3 b)
     return r;
 }
 
+inline float rad_to_angle(float rad) {
+    return rad * 180.0f / M_PI;
+}
+
 inline float magnitude(Vector3 v) 
 {
     return sqrtf( (v.x * v.x) + (v.y * v.y) + (v.z * v.z) );
 }
+
+inline float vector_angle(Vector3 a, Vector3 b) 
+{
+    auto p   = dot_product(a, b);
+    auto am  = magnitude(a);
+    auto bm  = magnitude(b);
+    float rad = acosf(p/(am*bm));
+    return rad_to_angle(rad);
+}   
 
 inline Vector3 normalize(Vector3 v)
 {
@@ -78,4 +93,79 @@ inline Vector3 vec_normal(Vector3 v1, Vector3 v2, Vector3 v3)
 inline Vector3 make_vector3(float x, float y, float z)
 {
     return {x, y, z};
+}
+
+// Overloads
+// @Todo: Vector ptr overloads
+
+inline Vector3 operator+(Vector3 &lhs, float add) {
+    Vector3 r = {
+        lhs.x + add,
+        lhs.y + add,
+        lhs.z + add
+    };
+    return r;
+}
+
+inline Vector3 operator-(Vector3 &lhs, float sub) {
+    Vector3 r = {
+        lhs.x - sub,
+        lhs.y - sub,
+        lhs.z - sub
+    };
+    return r;
+}
+
+inline Vector3 operator*(Vector3 &lhs, float scalar) {
+    Vector3 r = {
+        lhs.x * scalar,
+        lhs.y * scalar,
+        lhs.z * scalar
+    };
+    return r;
+}
+
+inline Vector3 operator/(Vector3 &lhs, float scalar) {
+    Vector3 r = {
+        lhs.x / scalar,
+        lhs.y / scalar,
+        lhs.z / scalar
+    };
+    return r;
+}
+
+inline Vector3 operator+(Vector3 &lhs, Vector3 &rhs) {
+    Vector3 r = {
+        lhs.x + rhs.x,
+        lhs.y + rhs.y,
+        lhs.z + rhs.z,
+    };
+    return r;
+}
+
+inline Vector3 operator-(Vector3 &lhs, Vector3 &rhs) {
+    Vector3 r = {
+        lhs.x - rhs.x,
+        lhs.y - rhs.y,
+        lhs.z - rhs.z,
+    };
+    return r;
+}
+
+inline Vector3 operator*(Vector3 &lhs, Vector3 &rhs) {
+    Vector3 r = {
+        lhs.x * rhs.x,
+        lhs.y * rhs.y,
+        lhs.z * rhs.z,
+    };
+    return r;
+}
+
+inline Vector3 operator/(Vector3 &lhs, Vector3 &rhs) {
+    Vector3 r = {
+        lhs.x / rhs.x,
+        lhs.y / rhs.y,
+        lhs.z / rhs.z,
+    };
+    return r;
 }
