@@ -50,6 +50,7 @@ void clog(const char *__fmt_msg, ...);
 
 #define M_PI 3.14159265358979323846
 
+#include <string>
 #include "new_string.h"
 #include "array.h"
 #include "window.h"
@@ -57,8 +58,6 @@ void clog(const char *__fmt_msg, ...);
 #include <ctime>
 #include <cstdlib>
 #include <iostream>
-
-#include <string>
 
 char *func get_project_dir_cstr() 
 {
@@ -193,8 +192,6 @@ inline void func swap(float *a, float *b)
 
 Model func *parse_obj_file(String obj_filename) 
 {
-    char *project_dir = get_project_dir_cstr();
-    
     String obj = read_entire_file(obj_filename.data);
     
     Model *m = new Model();

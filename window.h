@@ -180,6 +180,7 @@ Win32DisplayBuffer(Win32_Offscreen_Buffer *buffer, HDC device_context, int windo
                   0, 0, window_width, window_height,
                   0, 0, buffer->width, buffer->height,
                   buffer->memory,
+                  // buffer->zbuffer,
                   &buffer->info,
                   DIB_RGB_COLORS,
                   SRCCOPY);

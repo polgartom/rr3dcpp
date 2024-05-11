@@ -212,4 +212,9 @@ inline bool operator==(String &lhs, char *rhs)
     return string_equal_cstr(lhs, rhs);
 }
 
+inline bool operator==(String &lhs, const char *rhs)
+{
+    return string_equal_cstr(lhs, (char *)rhs);
+}
+
 #endif

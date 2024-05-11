@@ -8,10 +8,13 @@ int WINDOW_HEIGHT = 800;
 Model *selected_model = nullptr;
 Model *hovered_model = nullptr;
 
-Camera cam = {0}; 
+Camera cam = {
+    .pos = {0, 0, 0.11},
+    .rot = {0},
+};
 
 Vector3 light_dir = {0.1, 0.1, -1};
-const float light_speed = 0.01f; // 0.005
+const float light_speed = 0.1f; // 0.005
 float light_rot = 0.0f;
 
 #define RGB_COLOR(r, g, b) (((r & 0xFF) << 16) | ((g & 0xFF) << 8) | ((b & 0xFF) << 0))
@@ -366,27 +369,44 @@ void func draw_mesh(Model *m)
             rotate_x(&v3, -light_rot);
         }
 
-        rotate(&v1, cam.rot);
-        rotate(&v2, cam.rot);
-        rotate(&v3, cam.rot);
+        // rotate(&v1, cam.rot);
+        // rotate(&v2, cam.rot);
+        // rotate(&v3, cam.rot);
 
         // LOCAL
         scale(&v1, m->scale);
         scale(&v2, m->scale);
         scale(&v3, m->scale);
-        
-        rotate(&v1, m);
-        rotate(&v2, m);
-        rotate(&v3, m);
-        
+
         transform(&v1, m);
         transform(&v2, m);
         transform(&v3, m);
-
+        
+        rotate_y(&v1, cam.rot.y);
+        rotate_y(&v2, cam.rot.y);
+        rotate_y(&v3, cam.rot.y);
+    
         // CAMERA
-        v1 = (v1 + cam.pos) * cam.zoom;
-        v2 = (v2 + cam.pos) * cam.zoom;
-        v3 = (v3 + cam.pos) * cam.zoom;
+        v1.x *= cam.zoom;
+        v1.y *= cam.zoom;
+        
+        v2.x *= cam.zoom;
+        v2.y *= cam.zoom;
+                
+        v3.x *= cam.zoom;
+        v3.y *= cam.zoom;
+        
+        v1 = (v1 + cam.pos);
+        v2 = (v2 + cam.pos);
+        v3 = (v3 + cam.pos);
+
+        if (vk_key_pressed == 71 && m->name == "cow") {
+            CLOG_START();
+                CLOG_VEC3(v1);
+                CLOG_VEC3(v2);
+                CLOG_VEC3(v3);
+            CLOG_END();
+        }
         
         Vector3 normal = vec_normal(v1, v2, v3);
         normals_count++;
@@ -465,6 +485,8 @@ void func draw_mesh(Model *m)
                 float u1, u2, det = 0;
                 if (olivec_barycentric(A.x, A.y, B.x, B.y, C.x, C.y, x, y, &u1, &u2, &det)) {
                     float u3 = det - u1 - u2;
+                    
+                    // @Todo: we need to use the relative space to the camera
                     float z = 1/v1.z*u1/det + 1/v2.z*u2/det + 1/v3.z*u3/det;
                     
                     Vector3 bar = {u1/det, u2/det, u3/det};
@@ -482,7 +504,7 @@ void func draw_mesh(Model *m)
                     u32 b = clamp<u32>( 5, 255, static_cast<u8>(255 * intensity * z) );
                     u32 color = RGB_COLOR(r, g, b);
                     
-                    if (z > get_zbuf(x, y)) {
+                    if (z < 0.1f || z > get_zbuf(x, y)) {
                         set_pixel(x, y, color);
                         set_zbuf(x, y, z);
                     }
@@ -554,6 +576,7 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
     assert(AllocConsole()); // @temporary
     Win32LoadXInput();
 
+    char *project_dir = get_project_dir_cstr();
     std::srand(time(0));
 
     WNDCLASSA window_class = {};
@@ -675,7 +698,7 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                 uvtex.flip_vertically();
                 m->texture = uvtex;
                 
-                m->show_normals = false;
+                m->show_normals = true;
             }
             
             {
@@ -774,10 +797,11 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                     else if (it->y < ymin) ymin = it->y;
                 }
                 
-                m->w = xmax - xmin;
-                m->h = ymax - ymin;
-                m->z = map_z(zmin, zmin, zmax) + m->z;
-                m->zh = zmax - zmin;
+                // m->w = xmax - xmin;
+                // m->h = ymax - ymin;
+                // m->z = map_z(zmin, zmin, zmax) + m->z;
+                // m->zh = zmax - zmin;
+                
                 CLOG1(CLOG_F(m->zh));
             }
 
@@ -800,6 +824,11 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
 
             cam.pos  = {0, 0, 1.0f};
             cam.zoom = 0.5;
+            
+            TGAImage skymap(1024, 512, TGAImage::RGB);
+            assert(skymap.read_tga_file("./img/starmap_2020_4k_skymap.tga"));
+            skymap.scale(1024, WINDOW_HEIGHT);
+            skymap.flip_vertically();
 
             // Start main loop
             while (global_running) {
@@ -828,6 +857,16 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                 ZERO_MEMORY(global_back_buffer.memory, global_back_buffer.bitmap_memory_size);
                 ZERO_MEMORY(global_back_buffer.zbuffer, global_back_buffer.bitmap_memory_size);
 
+                // Draw skymap
+                // @Speed: We can use memcpy
+                auto mw = max(skymap.get_width(), WINDOW_WIDTH);
+                auto mh = max(skymap.get_height(), WINDOW_HEIGHT);
+                for (int x = 0; x < mw; x++) {
+                    for (int y = 0; y < mh; y++) {
+                        set_pixel(x, y, skymap.get(x, y).val);
+                    }
+                }
+
                 // rotate_x(&end, -rr);
                 // rotate_x(&start, -rr);
                 // // rotate_y(&end, -rr);
@@ -842,36 +881,43 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
 
                 // CLOG1(CLOG_D(vk_key_pressed));
                 
-                rotate_y(&light_dir, light_speed);
-                rotate_x(&light_dir, -light_speed);
-                light_rot += light_speed;
-                
+                light_dir = {0.1, 0.1, -1};
+                rotate_y(&light_dir, light_rot);
+                //rotate_x(&light_dir, -light_rot);
+                //light_rot += light_speed;
+                rotate(&light_dir, cam.rot);
+                light_dir.x *= cam.pos.x;
+                light_dir.y *= cam.pos.x;
+                            
                 if (vk_key_pressed == 37) { // arrow left
                     if (vk_alt_was_down) {
                         cam.rot.y += 0.05f;
+                        //rotate_x(&cam.pos, cam.rot.y);
                     } else {
-                        cam.pos.x -= 0.01f;
+                        cam.pos.x -= 0.1f;
                     }
                 }
                 if (vk_key_pressed == 39) { // arrow right
                     if (vk_alt_was_down) {
                         cam.rot.y -= 0.05f;
                     } else {
-                        cam.pos.x += 0.01f;
+                        cam.pos.x += 0.1f;
                     }
                 }
                 if (vk_key_pressed == 40) { // arrow down
                     if (vk_alt_was_down) {
-                        cam.zoom += 0.01f;
+                        cam.zoom -= 0.1f;
+                        cam.pos.z += 0.1f;
                     } else {
-                        cam.pos.y -= 0.01f;
+                        cam.pos.y -= 0.1f;
                     }
                 }
                 if (vk_key_pressed == 38) { // arrow up
                     if (vk_alt_was_down) {
-                        cam.zoom -= 0.01f;
+                        cam.zoom += 0.1f;
+                        cam.pos.z -= 0.1f;
                     } else {
-                        cam.pos.y += 0.01f;
+                        cam.pos.y += 0.1f;
                     }
                 }
                 
