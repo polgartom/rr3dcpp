@@ -343,6 +343,7 @@ void func fill_triangle(Vector3 v1, Vector3 v2, Vector3 v3, u32 color, Vector3 *
 
 void func draw_mesh(Model *m)
 {
+    // for mouse hover check
     float x_min = -0.1;
     float y_min = -0.1;
     float x_max = 0.0f;
@@ -414,18 +415,15 @@ void func draw_mesh(Model *m)
         Vector3 varying_intensity = {0};
         if (m->normals.count) {
             Vector3 norm = m->normals[f.vn1];
-            rotate(&norm, cam.rot);
-            rotate(&norm, m);
+            rotate(&norm, m); // only if the obj is rotating
             varying_intensity.m[0] = max(0.0f, dot_product(norm, light_dir));
 
             norm = m->normals[f.vn2];
-            rotate(&norm, cam.rot);
-            rotate(&norm, m);
+            rotate(&norm, m); // only if the obj is rotating
             varying_intensity.m[1] = max(0.0f, dot_product(norm, light_dir));
 
             norm = m->normals[f.vn3];
-            rotate(&norm, cam.rot);
-            rotate(&norm, m);
+            rotate(&norm, m); // only if the obj is rotating
             varying_intensity.m[2] = max(0.0f, dot_product(norm, light_dir));
         }
         else {
@@ -442,7 +440,6 @@ void func draw_mesh(Model *m)
         // @Todo: put the scaling here
         // draw_triangle(v1, v2, v3);
         
-#if 1
         auto A = to_scr_coords(v1);
         auto B = to_scr_coords(v2);
         auto C = to_scr_coords(v3);
@@ -456,6 +453,12 @@ void func draw_mesh(Model *m)
         int ymax = MAX3(A.y, B.y, C.y);
         if (xmin < 0)             ymin = 0;
         if (xmax > WINDOW_HEIGHT) ymax = WINDOW_HEIGHT;
+
+        // for mouse hover check
+        if (xmax > x_max) x_max = xmax;
+        if (xmin < x_min || x_min < 0.0f) x_min = xmin; 
+        if (ymax > y_max) y_max = ymax;
+        if (ymin < y_min || y_min < 0.0f) y_min = ymin; 
 
         for (int x = xmin; x <= xmax; x++) {
             for (int y = ymin; y <= ymax; y++) {
@@ -486,8 +489,6 @@ void func draw_mesh(Model *m)
                 }
             }
         }
-    
-#endif
 
         // if (normals_count % 60 == 0) {
         //     float i = max(0.0f, dot_product(normal, {0, 0, -1}));
@@ -505,15 +506,17 @@ void func draw_mesh(Model *m)
 
     }
     
-    // m->sx = x_min;
-    // m->sw = x_max - x_min;
-    // m->sy = y_min;
-    // m->sh = y_max - y_min;
+    // for mouse hover check
+    m->sx = x_min;
+    m->sw = x_max - x_min;
+    m->sy = y_min;
+    m->sh = y_max - y_min;
     
-    // if (mouse_x >= x_min && mouse_x <= x_max 
-    //     && abs(mouse_y-WINDOW_HEIGHT) >= m->sy && abs(mouse_y-WINDOW_HEIGHT) <= m->sy + m->sh) {    
-    //     hovered_model = m;
-    // }
+    // @Incomplete: Z-index check?
+    if (mouse_x >= x_min && mouse_x <= x_max 
+        && abs(mouse_y-WINDOW_HEIGHT) >= m->sy && abs(mouse_y-WINDOW_HEIGHT) <= m->sy + m->sh) {    
+        hovered_model = m;
+    }
     
 }
 
@@ -845,14 +848,14 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                 
                 if (vk_key_pressed == 37) { // arrow left
                     if (vk_alt_was_down) {
-                        cam.rot.y += 0.01f;
+                        cam.rot.y += 0.05f;
                     } else {
                         cam.pos.x -= 0.01f;
                     }
                 }
                 if (vk_key_pressed == 39) { // arrow right
                     if (vk_alt_was_down) {
-                        cam.rot.y -= 0.01f;
+                        cam.rot.y -= 0.05f;
                     } else {
                         cam.pos.x += 0.01f;
                     }
@@ -897,29 +900,77 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                     draw_mesh(m);
                 }
 
-                // rr -= 0.001f;
-                // Vector3 view = {0, 0, -1};
-                // const int max_traces = 1; // 40
-                // for (int i = 0; i < max_traces; i++) {
-                //     float normalized = static_cast<float>(std::rand()) / RAND_MAX;
-                //     float rand = -1.0f + 2.0f * normalized;
-                //     rand = 0;
-                //     Vector3 ls = {-0.80f-rr, 0.85f+rr, 3.0f-rr};
-                //     Vector3 le = {0.21f+rand, -0.3f+rand, 1.5f+rr};
-                //     Vector3 lo = {-le.x, le.y, le.z};
-                //     draw_line(ls, le, RGB_COLOR(255, 50, 50), true);
-                //     // draw_line(ls, lo, RGB_COLOR(250, 100, 200), true);
-                //     fill_triangle(ls, le, lo, RGB_COLOR(250, 100, 200));
-                    
-                //     Vector3 ln = vec_normal(ls, le, lo);
-                //     draw_line(le, ln, RGB_COLOR(10, 250, 200), true);
-                // }
+                // (CLOG_D(mouse_x));
+                // clog("\n");
+                // (CLOG_D(mouse_y));
+                // clog("\n");
+
+                if (mouse_events & MOUSE_DOWN) {
+                    if (hovered_model) {
+                        selected_model = hovered_model;
+                    } else {
+                        selected_model = nullptr;
+                    }
+                }
                 
-                // Vector3 normal = normalize(cross_product()); 
-                // float i = max(0.0f, dot_product(normal, {0, 0, -1}));
-                // draw_line({0.1, 0.1f, -1}, {light_dir.x, light_dir.y, light_dir.z}, RGB_COLOR(250, 200, 100));
-                // draw_line({0.1, 0.1f, -1}, {-light_dir.x, -light_dir.y, -light_dir.z}, RGB_COLOR(250, 200, 100));
-                // // draw_line({1, 0.1f, -1}, {light_dir.x, light_dir.y+1.0f, light_dir.z}, RGB_COLOR(250, 200, 100));
+                if (selected_model) {
+                    // auto m = selected_model;
+                    // Vector3 mouse = { scr_rev_x(mouse_x), scr_rev_y(abs(mouse_y-WINDOW_HEIGHT)), m->z };
+                    // m->x = mouse.x * m->z;
+                    // m->y = mouse.y * m->z;
+                }
+                
+                if (hovered_model) {
+                    Model *m = hovered_model;
+                    u32 border_color = RGB_COLOR(255, 255, 255);
+
+                    float m_cy = (m->sy + m->sh / 2);
+                    float m_cx = (m->sx + m->sw / 2);
+
+                    // Selected entity x, y axis
+                    for (float x = m_cx; x <= m->sx + m->sw; x++) {
+                        set_pixel(x, m_cy, RGB_COLOR(255, 80, 80));
+                    }
+                    for (float y = m_cy; y <= m->sy + m->sh; y++) {
+                        set_pixel(m_cx, y, RGB_COLOR(80, 255, 80));
+                    }
+                    
+                    // Selected entity bounding box with 10px padding
+                    for (float x = m->sx-10; x <= m->sx + m->sw + 10; x++) {
+                        set_pixel(x, m->sy + m->sh + 10, border_color);  // top
+                        set_pixel(x, m->sy - 10, border_color);          // bottom
+                    }
+                    for (float y = m->sy - 10; y <= m->sy + m->sh + 10; y++) {
+                        set_pixel(m->sx - 10, y, border_color);          // left
+                        set_pixel(m->sx + m->sw + 10, y, border_color);  // right
+                    }                   
+                }
+                
+                if (selected_model) {
+                    Model *m = selected_model;
+                    u32 border_color = RGB_COLOR(200, 21, 21);
+
+                    float m_cy = (m->sy + m->sh / 2);
+                    float m_cx = (m->sx + m->sw / 2);
+
+                    // Selected entity x, y axis
+                    for (float x = m_cx; x <= m->sx + m->sw; x++) {
+                        set_pixel(x, m_cy, RGB_COLOR(255, 80, 80));
+                    }
+                    for (float y = m_cy; y <= m->sy + m->sh; y++) {
+                        set_pixel(m_cx, y, RGB_COLOR(80, 255, 80));
+                    }
+                    
+                    // Selected entity bounding box with 10px padding
+                    for (float x = m->sx-10; x <= m->sx + m->sw + 10; x++) {
+                        set_pixel(x, m->sy + m->sh + 10, border_color);  // top
+                        set_pixel(x, m->sy - 10, border_color);          // bottom
+                    }
+                    for (float y = m->sy - 10; y <= m->sy + m->sh + 10; y++) {
+                        set_pixel(m->sx - 10, y, border_color);          // left
+                        set_pixel(m->sx + m->sw + 10, y, border_color);  // right
+                    }                   
+                }
                 
                 Win32DisplayBuffer(&global_back_buffer, device_context, dimension.width, dimension.height, 0, 0);
                 ReleaseDC(window, device_context);
