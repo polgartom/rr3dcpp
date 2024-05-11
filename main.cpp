@@ -377,6 +377,10 @@ void func draw_mesh(Model *m)
         scale(&v1, m->scale);
         scale(&v2, m->scale);
         scale(&v3, m->scale);
+        
+        // v1 = (v1 + cam.pos);
+        // v2 = (v2 + cam.pos);
+        // v3 = (v3 + cam.pos);
 
         transform(&v1, m);
         transform(&v2, m);
@@ -387,6 +391,10 @@ void func draw_mesh(Model *m)
         rotate_y(&v3, cam.rot.y);
     
         // CAMERA
+        v1 = (v1 + cam.pos);
+        v2 = (v2 + cam.pos);
+        v3 = (v3 + cam.pos);
+
         v1.x *= cam.zoom;
         v1.y *= cam.zoom;
         
@@ -395,11 +403,7 @@ void func draw_mesh(Model *m)
                 
         v3.x *= cam.zoom;
         v3.y *= cam.zoom;
-        
-        v1 = (v1 + cam.pos);
-        v2 = (v2 + cam.pos);
-        v3 = (v3 + cam.pos);
-
+    
         if (vk_key_pressed == 71 && m->name == "cow") {
             CLOG_START();
                 CLOG_VEC3(v1);
@@ -504,7 +508,7 @@ void func draw_mesh(Model *m)
                     u32 b = clamp<u32>( 5, 255, static_cast<u8>(255 * intensity * z) );
                     u32 color = RGB_COLOR(r, g, b);
                     
-                    if (z < 0.1f || z > get_zbuf(x, y)) {
+                    if (z > 0.1f && z > get_zbuf(x, y)) {
                         set_pixel(x, y, color);
                         set_zbuf(x, y, z);
                     }
@@ -881,10 +885,10 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
 
                 // CLOG1(CLOG_D(vk_key_pressed));
                 
-                light_dir = {0.1, 0.1, -1};
-                rotate_y(&light_dir, light_rot);
-                //rotate_x(&light_dir, -light_rot);
-                //light_rot += light_speed;
+                //light_dir = {0.1, 0.1, -1};
+                rotate_y(&light_dir, light_speed);
+                rotate_x(&light_dir, -light_speed);
+                light_rot += light_speed;
                 rotate(&light_dir, cam.rot);
                 light_dir.x *= cam.pos.x;
                 light_dir.y *= cam.pos.x;
@@ -906,16 +910,16 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                 }
                 if (vk_key_pressed == 40) { // arrow down
                     if (vk_alt_was_down) {
-                        cam.zoom -= 0.1f;
-                        cam.pos.z += 0.1f;
+                        cam.zoom -= 0.01f;
+                        cam.pos.z += 1.0f;
                     } else {
                         cam.pos.y -= 0.1f;
                     }
                 }
                 if (vk_key_pressed == 38) { // arrow up
                     if (vk_alt_was_down) {
-                        cam.zoom += 0.1f;
-                        cam.pos.z -= 0.1f;
+                        cam.zoom += 0.01f;
+                        cam.pos.z -= 1.0f;
                     } else {
                         cam.pos.y += 0.1f;
                     }
