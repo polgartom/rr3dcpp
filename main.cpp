@@ -113,7 +113,7 @@ inline Vector3 func project(Vector3 v)
     // :VulkanToOpenGLProjection
     // @Incomplete: This is the Vulkan style perspective projection, therefore
     // we have to use the VEC3_DOWN instead of VEC3_UP vector in the lookat() proc.
-    // Should we change this to the OpenGL or just use the vulkan style? ( 
+    // Should we change this to the OpenGL or just use the vulkan style?
     // 
 
     float z_near = 0.5f;
@@ -121,7 +121,6 @@ inline Vector3 func project(Vector3 v)
     float z_range = z_far - z_near;
     float f_fov  = 90.0f; // vertical field of view
     float aspect_ratio = ((float)WINDOW_HEIGHT / (float)WINDOW_WIDTH);
-    float fov = 1.0f / tanf(f_fov / 2);
 
     Matrix4 m = {
         aspect_ratio * (1.0f/tanf(f_fov/2)), 0, 0, 0,
