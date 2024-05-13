@@ -47,10 +47,6 @@ inline Vector3 cross_product(Vector3 a, Vector3 b)
     return r;
 }
 
-inline float rad_to_angle(float rad) {
-    return rad * 180.0f / M_PI;
-}
-
 inline float magnitude(Vector3 v) 
 {
     return sqrtf( (v.x * v.x) + (v.y * v.y) + (v.z * v.z) );
@@ -62,7 +58,9 @@ inline float vector_angle(Vector3 a, Vector3 b)
     auto am  = magnitude(a);
     auto bm  = magnitude(b);
     float rad = acosf(p/(am*bm));
-    return rad_to_angle(rad);
+    
+    inline float rad_to_deg(float rad);
+    return rad_to_deg(rad);
 }   
 
 inline Vector3 normalize(Vector3 v)
@@ -141,6 +139,13 @@ inline Vector3 operator+(Vector3 &lhs, Vector3 &rhs) {
         lhs.z + rhs.z,
     };
     return r;
+}
+
+inline Vector3 operator+=(Vector3 &lhs, Vector3 &rhs) {
+    lhs.x += rhs.x;
+    lhs.y += rhs.y;
+    lhs.z += rhs.z;
+    return lhs;
 }
 
 inline Vector3 operator-(Vector3 &lhs, Vector3 &rhs) {

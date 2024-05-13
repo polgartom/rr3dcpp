@@ -93,7 +93,7 @@ struct Matrix4 {
     float _00, _01, _02, _03,
           _10, _11, _12, _13,
           _20, _21, _22, _23,
-          _30, _31, _32, _33 = 0.0f;
+          _30, _31, _32, _33 = 0.0f;    
 };
 
 struct Face {
@@ -115,6 +115,9 @@ struct Model {
     float ry = 0.0f;
     float rz = 0.0f;
     
+    float zfar  = 0.0f;
+    float znear = 0.0f;
+    
     float sx, sy, sw, sh = 0.0f;
     
     Array<Vector3>  vectors;
@@ -127,11 +130,47 @@ struct Model {
     // DEBUG
     bool show_normals = false;
     int  normals_intensity = 60; // show every 60th normal
+    
+    void func recalc_bounds() {
+        auto m = this;
+        float xmax = 0.0f; float ymax = 0.0f; float zmax = 0.0f;
+        float xmin = 0.0f; float ymin = 0.0f; float zmin = 0.0f;
+    
+        For (m->vectors) {
+            if (it->z > zmax) zmax = it->z;
+            else if (it->z < zmin) zmin = it->z;
+            
+            if (it->x > xmax) xmax = it->x;
+            else if (it->x < xmin) xmin = it->x;
+            
+            if (it->y > ymax) ymax = it->y;
+            else if (it->y < ymin) ymin = it->y;
+        }
+        
+        // CLOG1((
+        //     CLOG_S(m->name),
+        //     CLOG_F(m->z),
+        //     CLOG_F(zmin),
+        //     CLOG_F(zmax)
+        // ));
+        
+        m->w = xmax - xmin;
+        m->h = ymax - ymin;
+        m->z = ( (zmin - zmax) / (zmin - zmax) ) + m->z;
+        m->zh = zmax - zmin;
+        
+        m->zfar = zmax;
+        m->znear = zmin;
+        // CLOG1(CLOG_F(m->z));
+    }
+    
+    
 };
 
 struct Camera {
     Vector3 pos = {0};
     Vector3 rot = {0};    // rotation
+    Vector3 dir = {0};
     
     float   zoom = 1.0f;
 };

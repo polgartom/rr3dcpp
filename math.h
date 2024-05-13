@@ -38,6 +38,33 @@ inline Vector4 func multiply(Vector4 v, Matrix4 m)
     return r;
 }
 
+inline Matrix4 func multiply(Matrix4 a, Matrix4 b)
+{
+    Matrix4 r = {0};
+    
+    r._00 = a._00 * b._00 + a._01 * b._10 + a._02 * b._20 + a._03 * b._30;
+    r._10 = a._10 * b._00 + a._11 * b._10 + a._12 * b._20 + a._13 * b._30;
+    r._20 = a._20 * b._00 + a._21 * b._10 + a._22 * b._20 + a._23 * b._30;
+    r._30 = a._30 * b._00 + a._31 * b._10 + a._32 * b._20 + a._33 * b._30;
+    
+    r._01 = a._00 * b._01 + a._01 * b._11 + a._02 * b._21 + a._03 * b._31;
+    r._11 = a._10 * b._01 + a._11 * b._11 + a._12 * b._21 + a._13 * b._31;
+    r._21 = a._20 * b._01 + a._21 * b._11 + a._22 * b._21 + a._23 * b._31;
+    r._31 = a._30 * b._01 + a._31 * b._11 + a._32 * b._21 + a._33 * b._31;
+    
+    r._02 = a._00 * b._02 + a._01 * b._12 + a._02 * b._22 + a._03 * b._32;
+    r._12 = a._10 * b._02 + a._11 * b._12 + a._12 * b._22 + a._13 * b._32;
+    r._22 = a._20 * b._02 + a._21 * b._12 + a._22 * b._22 + a._23 * b._32;
+    r._32 = a._30 * b._02 + a._31 * b._12 + a._32 * b._22 + a._33 * b._32;
+    
+    r._03 = a._00 * b._03 + a._01 * b._13 + a._02 * b._23 + a._03 * b._33;
+    r._13 = a._10 * b._03 + a._11 * b._13 + a._12 * b._23 + a._13 * b._33;
+    r._23 = a._20 * b._03 + a._21 * b._13 + a._22 * b._23 + a._23 * b._33;
+    r._33 = a._30 * b._03 + a._31 * b._13 + a._32 * b._23 + a._33 * b._33;
+
+    return r;
+}
+
 inline Vector3 func substract(Vector3 a, Vector3 b)
 {
     Vector3 r = {
@@ -165,4 +192,14 @@ inline void func rotate(Vector3 *v, Vector3 rot)
 inline void func rotate(Vector3 *v, Model *m)
 {
     rotate(v, m->rx, m->ry, m->rz);
+}
+
+inline float rad_to_deg(float rad)
+{
+    return rad * 180.0f / M_PI;
+}
+
+inline float deg_to_rad(float deg)
+{
+    return deg * M_PI / 180.0;
 }

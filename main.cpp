@@ -9,11 +9,15 @@ Model *selected_model = nullptr;
 Model *hovered_model = nullptr;
 
 Camera cam = {
-    .pos = {0, 0, 0.11},
+    .pos = {0, 0, -7.0f},
     .rot = {0},
+    .dir = {0, 0, 1.0f},
+    .zoom = 0.58f,
 };
 
-Vector3 light_dir = {0.1, 0.1, -1};
+const Vector3 VEC3_UP = {0.0f, 1.0f, 0.0f}; 
+
+Vector3 light_dir = {0.1, 0.1, -1.0f};
 const float light_speed = 0.1f; // 0.005
 float light_rot = 0.0f;
 
@@ -79,22 +83,52 @@ inline float func scr_rev_y(float y)
     return y * 2 / WINDOW_WIDTH - 1.0;
 }
 
-inline Vector3 func project(Vector3 v)
-{
-    float f_near = 0.1f;
-    float f_far  = 1000.0f;
-    // float f_fov  = 90.0f;
-    float f_fov  = 90.0f;
-    float f_aspect_ratio = ((float)WINDOW_HEIGHT / (float)WINDOW_WIDTH);
-    float f_fov_rad = 1.0f / tanf(f_fov * 0.5f / 180.0f * 3.14159f);
+float main_rot = 0.0f;
 
-    Matrix4 m = {0};
-    m._00 = f_aspect_ratio * f_fov_rad;
-    m._11 = f_fov_rad;
-    m._22 = f_far / (f_far - f_near);
-    m._32 = (-f_far * f_near) / (f_far - f_near);
-    m._23 = 1.0f;
-    m._33 = 0.0f;
+inline Matrix4 lookat(Vector3 eye, Vector3 target, Vector3 up)
+{
+    Vector3 zaxis = normalize(eye - target);    
+    Vector3 xaxis = normalize(cross_product(up, zaxis));
+    Vector3 yaxis = cross_product(zaxis, xaxis);     
+
+    Matrix4 orientation(
+       xaxis.m[0], yaxis.m[0], zaxis.m[0], 0,
+       xaxis.m[1], yaxis.m[1], zaxis.m[1], 0,
+       xaxis.m[2], yaxis.m[2], zaxis.m[2], 0,
+         0,       0,       0,     1);
+
+    Matrix4 translation(
+              1,       0,       0, 0,
+              0,       1,       0, 0, 
+              0,       0,       1, 0,
+        -eye.m[0], -eye.m[1], -eye.m[2], 1);
+
+    return multiply(orientation, translation);
+}
+
+inline Vector3 project(Vector3 v)
+{
+    float z_near = 0.1f;
+    float z_far  = 30.0f; // 1000.0f
+    float z_range = z_far - z_near;
+    float f_fov  = 90.0f; // vertical field of view
+    float aspect_ratio = ((float)WINDOW_HEIGHT / (float)WINDOW_WIDTH);
+    float fov = 1.0f / tanf(f_fov / 2);
+    
+    // Matrix4 m = {0};
+    // m._00 = aspect_ratio * fov;
+    // m._11 = fov;
+    // m._22 = z_far / (z_far - z_near);
+    // m._23 = 1.0f;
+    // m._32 = (-z_far * z_near) / (z_far - z_near);
+    // m._33 = 0.0f;
+
+    Matrix4 m = {
+        aspect_ratio * (1.0f/tanf(f_fov/2)), 0, 0, 0,
+        0, 1.0f/tanf(f_fov/2), 0, 0,
+        0, 0, z_far/z_range, (-z_far*z_near) / z_range,
+        0, 0, 1, 0
+    };
 
     return multiply(v, m);
 }
@@ -351,6 +385,8 @@ void func draw_mesh(Model *m)
     float y_min = -0.1;
     float x_max = 0.0f;
     float y_max = 0.0f;
+    
+    float z_min = 1000.0f;
 
     int normals_count = 0;
 
@@ -372,38 +408,33 @@ void func draw_mesh(Model *m)
         // rotate(&v1, cam.rot);
         // rotate(&v2, cam.rot);
         // rotate(&v3, cam.rot);
-
+        
         // LOCAL
         scale(&v1, m->scale);
         scale(&v2, m->scale);
         scale(&v3, m->scale);
-        
-        // v1 = (v1 + cam.pos);
-        // v2 = (v2 + cam.pos);
-        // v3 = (v3 + cam.pos);
+                // kacsa
 
         transform(&v1, m);
         transform(&v2, m);
         transform(&v3, m);
-        
-        rotate_y(&v1, cam.rot.y);
-        rotate_y(&v2, cam.rot.y);
-        rotate_y(&v3, cam.rot.y);
+        // rotate_y(&v1, cam.rot.y);
+        // rotate_y(&v2, cam.rot.y);
+        // rotate_y(&v3, cam.rot.y);
     
-        // CAMERA
-        v1 = (v1 + cam.pos);
-        v2 = (v2 + cam.pos);
-        v3 = (v3 + cam.pos);
+        auto target = cam.pos + cam.dir;
+        Matrix4 matcam = lookat(cam.pos, target, {0, -1.0f, 0});
 
-        v1.x *= cam.zoom;
-        v1.y *= cam.zoom;
+        // View
+        auto v1w = multiply(v1, matcam);
+        auto v2w = multiply(v2, matcam);
+        auto v3w = multiply(v3, matcam);
         
-        v2.x *= cam.zoom;
-        v2.y *= cam.zoom;
-                
-        v3.x *= cam.zoom;
-        v3.y *= cam.zoom;
-    
+        // Projection
+        auto v1p = project(v1w);
+        auto v2p = project(v2w);
+        auto v3p = project(v3w);
+        
         if (vk_key_pressed == 71 && m->name == "cow") {
             CLOG_START();
                 CLOG_VEC3(v1);
@@ -454,19 +485,14 @@ void func draw_mesh(Model *m)
             auto i = max(0.0f, dot_product(normal, light_dir));
             varying_intensity = { i, i, i };
         }
-        
-        // Projection
-        // v1 = project(v1);
-        // v2 = project(v2);
-        // v3 = project(v3);
-        
+                
         // Scaling
         // @Todo: put the scaling here
         // draw_triangle(v1, v2, v3);
         
-        auto A = to_scr_coords(v1);
-        auto B = to_scr_coords(v2);
-        auto C = to_scr_coords(v3);
+        auto A = to_scr_coords(v1p);
+        auto B = to_scr_coords(v2p);
+        auto C = to_scr_coords(v3p);
 
         int xmin = MIN3(A.x, B.x, C.x);
         int xmax = MAX3(A.x, B.x, C.x);
@@ -484,6 +510,11 @@ void func draw_mesh(Model *m)
         if (ymax > y_max) y_max = ymax;
         if (ymin < y_min || y_min < 0.0f) y_min = ymin; 
 
+        float zmin = MIN3(v1w.z, v2w.z, v3w.z);
+        if (zmin < z_min) z_min = zmin;
+
+        if (zmin < 0.1f) continue;
+
         for (int x = xmin; x <= xmax; x++) {
             for (int y = ymin; y <= ymax; y++) {
                 float u1, u2, det = 0;
@@ -492,7 +523,6 @@ void func draw_mesh(Model *m)
                     
                     // @Todo: we need to use the relative space to the camera
                     float z = 1/v1.z*u1/det + 1/v2.z*u2/det + 1/v3.z*u3/det;
-                    
                     Vector3 bar = {u1/det, u2/det, u3/det};
                     
                     float intensity = dot_product(varying_intensity, bar);
@@ -508,7 +538,8 @@ void func draw_mesh(Model *m)
                     u32 b = clamp<u32>( 5, 255, static_cast<u8>(255 * intensity * z) );
                     u32 color = RGB_COLOR(r, g, b);
                     
-                    if (z > 0.1f && z > get_zbuf(x, y)) {
+                    if (z > get_zbuf(x, y)) {
+                    // if (z > 0.1f && z > get_zbuf(x, y)) {
                         set_pixel(x, y, color);
                         set_zbuf(x, y, z);
                     }
@@ -537,6 +568,8 @@ void func draw_mesh(Model *m)
     m->sw = x_max - x_min;
     m->sy = y_min;
     m->sh = y_max - y_min;
+    
+    m->znear = z_min;
     
     // @Incomplete: Z-index check?
     if (mouse_x >= x_min && mouse_x <= x_max 
@@ -619,113 +652,51 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
             //Win32InitDSound();
 
             Array<Model *> models;
-            
-            // {
-            //     Model *m = parse_obj_file(".\\obj\\teddy.obj");
-            //     m->name = "teddy";
-            //     m->ry = 3.0f;
-            //     m->x = 1.8f;
-            //     m->z = 2.5f;
-            //     scale(m, 0.035f);
-            //     m->r = 200; m->g = 100; m->b = 10;
-                
-            //     array_add(&models, m);
-            // }
-            
-            // {
-            //     Model *m = parse_obj_file(".\\obj\\teddy.obj");
-            //     m->name = "teddy2";
-            //     m->ry = 4.0f;
-            //     m->x = 0.2f;
-            //     m->y = -0.12f;
-            //     m->z = 0.3f;
-            //     scale(m, 0.010f);
-            //     m->r = 50; m->g = 200; m->b = 80;
-                
-            //     array_add(&models, m);
-            // }
-            
-            // {
-            //     Model *m = parse_obj_file((".\\obj\\cow.obj"));
-            //     m->name = "cow";
-            //     m->x = -0.3f;
-            //     m->z = 1.3f;
-            //     scale(m, 0.12f);
-            //     m->r = 50; m->g = 80; m->b = 80;
-                
-            //     array_add(&models, m);
-            // }
 
             // {
-            //     Model *m = parse_obj_file((".\\obj\\teapot.obj"));
-            //     m->name = "teapot";
-            //     m->x = 0.0f;
-            //     m->y = -1.0f;
+            //     Model *m = parse_obj_file((".\\obj\\boogie\\boogie.obj"));
+            //     m->name = "boogie_body";
+            //     m->x = -1.0f;
+            //     m->y = 0.0f;
+            //     m->z = 0.5;
+            //     m->scale = 1.0f;
+            //     // scale(m, 0.8f);
+            //     m->r = 25; m->g = 25; m->b = 200;
+                
+            //     m->ry = 10.0f;
+                
+            //     array_add(&models, m);
+                
+            //     TGAImage uvtex(1024, 1024, TGAImage::RGB);
+            //     assert(uvtex.read_tga_file("./obj/boogie/body_diffuse.tga"));
+            //     uvtex.scale(1024/2, 1024/2);
+            //     uvtex.flip_vertically();
+            //     m->texture = uvtex;
+                
+            //     m->show_normals = true;
+            // }
+            
+            // {
+            //     Model *m = parse_obj_file((".\\obj\\boogie\\head.obj"));
+            //     m->name = "boogie_head";
+            //     m->x = -1.0f;
+            //     m->y = 0.0f;
             //     m->z = 0.5f;
-            //     scale(m, 0.27f);
-            //     m->r = 30; m->g = 10; m->b = 255;
+            //     m->scale = 1.0f;
+            //     m->r = 25; m->g = 25; m->b = 200;
+                
+            //     m->ry = 10.0f;
                 
             //     array_add(&models, m);
+                
+            //     TGAImage uvtex(1024, 1024, TGAImage::RGB);
+            //     assert(uvtex.read_tga_file("./obj/boogie/head_diffuse.tga"));
+            //     uvtex.scale(1024/2, 1024/2);
+            //     uvtex.flip_vertically();
+            //     m->texture = uvtex;
+                
+            //     m->show_normals = false;
             // }
-
-            // {
-            //     Model *m = parse_obj_file((".\\obj\\car_1924.obj"));
-            //     m->name = "car_1924";
-            //     m->x = 1.25f;
-            //     m->y = -5.5f;
-            //     m->z = 5.0;
-            //     scale(m, 0.7f);
-            //     m->r = 30; m->g = 10; m->b = 255;
-            //     m->rx = -0.2f;
-            //     // m->ry = -30.0f;
-                
-            //     array_add(&models, m);
-            // }
-            
-            {
-                Model *m = parse_obj_file((".\\obj\\boogie\\boogie.obj"));
-                m->name = "boogie_body";
-                m->x = -1.0f;
-                m->y = 0.0f;
-                m->z = 0.5;
-                m->scale = 1.0f;
-                // scale(m, 0.8f);
-                m->r = 25; m->g = 25; m->b = 200;
-                
-                m->ry = 10.0f;
-                
-                array_add(&models, m);
-                
-                TGAImage uvtex(1024, 1024, TGAImage::RGB);
-                assert(uvtex.read_tga_file("./obj/boogie/body_diffuse.tga"));
-                uvtex.scale(1024/2, 1024/2);
-                uvtex.flip_vertically();
-                m->texture = uvtex;
-                
-                m->show_normals = true;
-            }
-            
-            {
-                Model *m = parse_obj_file((".\\obj\\boogie\\head.obj"));
-                m->name = "boogie_head";
-                m->x = -1.0f;
-                m->y = 0.0f;
-                m->z = 0.5f;
-                m->scale = 1.0f;
-                m->r = 25; m->g = 25; m->b = 200;
-                
-                m->ry = 10.0f;
-                
-                array_add(&models, m);
-                
-                TGAImage uvtex(1024, 1024, TGAImage::RGB);
-                assert(uvtex.read_tga_file("./obj/boogie/head_diffuse.tga"));
-                uvtex.scale(1024/2, 1024/2);
-                uvtex.flip_vertically();
-                m->texture = uvtex;
-                
-                m->show_normals = false;
-            }
             
             {
                 Model *m = parse_obj_file((".\\obj\\cow.obj"));
@@ -735,7 +706,11 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                 m->z = 2.500000f;
                 m->scale = 0.15f;
                 m->r = 200; m->g = 150; m->b = 0;
-                m->ry = -4.5f;
+                m->ry = -4.6f;
+                
+                For (m->vectors) {
+                    rotate_y(it, m->ry);
+                }
                 
                 array_add(&models, m);
             }
@@ -745,7 +720,7 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                 m->name = "lamp1";
                 m->x = -0.2000f;
                 m->y = 0.000000f;
-                m->z = 2.500000f;
+                m->z = 5.500000f;
                 m->scale = 0.1f;
                 m->r = 10; m->g = 150; m->b = 100;
                 m->ry = 10.0f;
@@ -784,29 +759,8 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
             //     m->texture = uvtex;
             // }
             
-            For_Index (models) {
-                Model *m = models[it_index];
-                
-                float xmax = 0.0f; float ymax = 0.0f; float zmax = 0.0f;
-                float xmin = 0.0f; float ymin = 0.0f; float zmin = 0.0f;
-    
-                For (m->vectors) {
-                    if (it->z > zmax) zmax = it->z;
-                    else if (it->z < zmin) zmin = it->z;
-                    
-                    if (it->x > xmax) xmax = it->x;
-                    else if (it->x < xmin) xmin = it->x;
-                    
-                    if (it->y > ymax) ymax = it->y;
-                    else if (it->y < ymin) ymin = it->y;
-                }
-                
-                // m->w = xmax - xmin;
-                // m->h = ymax - ymin;
-                // m->z = map_z(zmin, zmin, zmax) + m->z;
-                // m->zh = zmax - zmin;
-                
-                CLOG1(CLOG_F(m->zh));
+            For (models) {
+                // ((Model *)*it)->recalc_bounds();
             }
 
             clog("{ vectors: %d }\n", models[0]->vectors.count);
@@ -833,7 +787,7 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
             assert(skymap.read_tga_file("./img/starmap_2020_4k_skymap.tga"));
             skymap.scale(1024, WINDOW_HEIGHT);
             skymap.flip_vertically();
-
+            
             // Start main loop
             while (global_running) {
                 mouse_events = 0;
@@ -889,21 +843,26 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                 rotate_y(&light_dir, light_speed);
                 rotate_x(&light_dir, -light_speed);
                 light_rot += light_speed;
-                rotate(&light_dir, cam.rot);
-                light_dir.x *= cam.pos.x;
-                light_dir.y *= cam.pos.x;
+                
+                // birka
+                main_rot += 0.05f;
+                
+                // rotate(&light_dir, cam.rot);
+                // light_dir.x *= cam.pos.x;
+                // light_dir.y *= cam.pos.x;
                             
                 if (vk_key_pressed == 37) { // arrow left
                     if (vk_alt_was_down) {
-                        cam.rot.y += 0.05f;
-                        //rotate_x(&cam.pos, cam.rot.y);
+                        cam.rot.y -= 0.01f;
+                        cam.dir.x -= 0.1f;
                     } else {
                         cam.pos.x -= 0.1f;
                     }
                 }
                 if (vk_key_pressed == 39) { // arrow right
                     if (vk_alt_was_down) {
-                        cam.rot.y -= 0.05f;
+                        cam.rot.y += 0.01f;
+                        cam.dir.x += 0.1f;
                     } else {
                         cam.pos.x += 0.1f;
                     }
@@ -925,6 +884,8 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                     }
                 }
                 
+                CLOG1((CLOG_VEC3(cam.pos), CLOG_F(cam.zoom)));
+                
                 For_Index (models) {
                     Model *m = models[it_index];
                     
@@ -940,12 +901,6 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                     
                     // m->ry = (((float)mouse_x) / 500)*-1 + 10.0f;
                     // m->ry += 0.01;
-                    
-                    // if (m->name == "teddy") {
-                    //     m->x = light_dir.x;
-                    //     m->y = light_dir.y;
-                    //     m->z = 2.0f;
-                    // }
                     
                     draw_mesh(m);
                 }
