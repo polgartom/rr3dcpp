@@ -107,14 +107,17 @@ inline Matrix4 lookat(Vector3 eye, Vector3 target, Vector3 up)
     return multiply(orientation, translation);
 }
 
-inline Vector3 project(Vector3 v)
+inline Vector3 func project(Vector3 v)
 {
+    //
+    // :VulkanToOpenGLProjection
     // @Incomplete: This is the Vulkan style perspective projection, therefore
     // we have to use the VEC3_DOWN instead of VEC3_UP vector in the lookat() proc.
-    // We should change this to the OpenGL style. :VulkanToOpenGLProjection
+    // Should we change this to the OpenGL or just use the vulkan style? ( 
+    // 
 
-    float z_near = 0.1f;
-    float z_far  = 30.0f; // 1000.0f
+    float z_near = 0.5f;
+    float z_far  = 1000.0f; // 1000.0f
     float z_range = z_far - z_near;
     float f_fov  = 90.0f; // vertical field of view
     float aspect_ratio = ((float)WINDOW_HEIGHT / (float)WINDOW_WIDTH);
@@ -418,7 +421,7 @@ void func draw_mesh(Model *m)
         // rotate_y(&v2, cam.rot.y);
         // rotate_y(&v3, cam.rot.y);
     
-        auto target = cam.pos + cam.dir;
+        auto target = cam.pos - cam.dir; // :VulkanToOpenGLProjection ??? it was (cam.pos + cam.dir) but we got fish eye effect
         Matrix4 matcam = lookat(cam.pos, target, VEC3_DOWN); // :VulkanToOpenGLProjection
 
         // View
@@ -511,16 +514,27 @@ void func draw_mesh(Model *m)
 
         if (zmin < 0.1f) continue;
 
+        bool cow = m->name == "cow";
+
         for (int x = xmin; x <= xmax; x++) {
             for (int y = ymin; y <= ymax; y++) {
                 float u1, u2, det = 0;
                 if (olivec_barycentric(A.x, A.y, B.x, B.y, C.x, C.y, x, y, &u1, &u2, &det)) {
                     float u3 = det - u1 - u2;
                     
-                    // @Todo: we need to use the relative space to the camera
+                    // @Todo: we need to use the relative space to the camera?
                     float z = 1/v1.z*u1/det + 1/v2.z*u2/det + 1/v3.z*u3/det;
-                    Vector3 bar = {u1/det, u2/det, u3/det};
                     
+                    if (cow && vk_key_pressed == 72) {
+                        float zw = 1/v1w.z*u1/det + 1/v2w.z*u2/det + 1/v3w.z*u3/det;
+                        float zp = 1/v1p.z*u1/det + 1/v2p.z*u2/det + 1/v3p.z*u3/det;
+                        clog("zw: %f ; zp: %f ; z: %f\n", zw, zp, z);
+                        if (zp <= 1.0f /* z_near */) {
+                            continue;
+                        }
+                    }
+                    
+                    Vector3 bar = {u1/det, u2/det, u3/det};
                     float intensity = dot_product(varying_intensity, bar);
                     // if (intensity>.85) intensity = 1;
                     // else if (intensity>.60) intensity = .80;
@@ -880,7 +894,7 @@ WinMain(HINSTANCE instance, HINSTANCE prev_instance, LPSTR command_line, int sho
                     }
                 }
                 
-                CLOG1((CLOG_VEC3(cam.pos), CLOG_F(cam.zoom)));
+                // CLOG1((CLOG_VEC3(cam.pos), CLOG_F(cam.zoom)));
                 
                 For_Index (models) {
                     Model *m = models[it_index];
