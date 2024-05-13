@@ -15,7 +15,8 @@ Camera cam = {
     .zoom = 0.58f,
 };
 
-const Vector3 VEC3_UP = {0.0f, 1.0f, 0.0f}; 
+const Vector3 VEC3_UP   = {0.0f,  1.0f, 0.0f}; 
+const Vector3 VEC3_DOWN = {0.0f, -1.0f, 0.0f};
 
 Vector3 light_dir = {0.1, 0.1, -1.0f};
 const float light_speed = 0.1f; // 0.005
@@ -108,20 +109,16 @@ inline Matrix4 lookat(Vector3 eye, Vector3 target, Vector3 up)
 
 inline Vector3 project(Vector3 v)
 {
+    // @Incomplete: This is the Vulkan style perspective projection, therefore
+    // we have to use the VEC3_DOWN instead of VEC3_UP vector in the lookat() proc.
+    // We should change this to the OpenGL style. :VulkanToOpenGLProjection
+
     float z_near = 0.1f;
     float z_far  = 30.0f; // 1000.0f
     float z_range = z_far - z_near;
     float f_fov  = 90.0f; // vertical field of view
     float aspect_ratio = ((float)WINDOW_HEIGHT / (float)WINDOW_WIDTH);
     float fov = 1.0f / tanf(f_fov / 2);
-    
-    // Matrix4 m = {0};
-    // m._00 = aspect_ratio * fov;
-    // m._11 = fov;
-    // m._22 = z_far / (z_far - z_near);
-    // m._23 = 1.0f;
-    // m._32 = (-z_far * z_near) / (z_far - z_near);
-    // m._33 = 0.0f;
 
     Matrix4 m = {
         aspect_ratio * (1.0f/tanf(f_fov/2)), 0, 0, 0,
@@ -413,7 +410,6 @@ void func draw_mesh(Model *m)
         scale(&v1, m->scale);
         scale(&v2, m->scale);
         scale(&v3, m->scale);
-                // kacsa
 
         transform(&v1, m);
         transform(&v2, m);
@@ -423,7 +419,7 @@ void func draw_mesh(Model *m)
         // rotate_y(&v3, cam.rot.y);
     
         auto target = cam.pos + cam.dir;
-        Matrix4 matcam = lookat(cam.pos, target, {0, -1.0f, 0});
+        Matrix4 matcam = lookat(cam.pos, target, VEC3_DOWN); // :VulkanToOpenGLProjection
 
         // View
         auto v1w = multiply(v1, matcam);
