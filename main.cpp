@@ -388,7 +388,8 @@ void func draw_mesh(Model *m)
     
     float z_min = 1000.0f;
 
-    int normals_count = 0;
+    int normals_count = 0;          // for debug
+    bool is_cow = m->name == "cow"; // for debug
 
     for (Face f : m->faces) {
         if (f.v1 >= m->vectors.count || f.v2 >= m->vectors.count || f.v3 >= m->vectors.count) return;
@@ -514,7 +515,6 @@ void func draw_mesh(Model *m)
 
         if (zmin < 0.1f) continue;
 
-        bool cow = m->name == "cow";
 
         for (int x = xmin; x <= xmax; x++) {
             for (int y = ymin; y <= ymax; y++) {
@@ -525,7 +525,8 @@ void func draw_mesh(Model *m)
                     // @Todo: we need to use the relative space to the camera?
                     float z = 1/v1.z*u1/det + 1/v2.z*u2/det + 1/v3.z*u3/det;
                     
-                    if (cow && vk_key_pressed == 72) {
+                    // for debug
+                    if (is_cow && vk_key_pressed == 72 /* h */) {
                         float zw = 1/v1w.z*u1/det + 1/v2w.z*u2/det + 1/v3w.z*u3/det;
                         float zp = 1/v1p.z*u1/det + 1/v2p.z*u2/det + 1/v3p.z*u3/det;
                         clog("zw: %f ; zp: %f ; z: %f\n", zw, zp, z);
